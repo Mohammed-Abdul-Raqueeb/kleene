@@ -224,3 +224,31 @@ test('a trailing backslash is rejected', () => {
   assert.match(error.message, /ends with a backslash/);
 });
 
+test('a malformed hex or unicode escape is rejected', () => {
+  throwsWith(() => tree('\\x4'), PatternError);
+  throwsWith(() => tree('\\xzz'), PatternError);
+  throwsWith(() => tree('\\u00'), PatternError);
+  throwsWith(() => tree('\\u{zz}'), PatternError);
+  throwsWith(() => tree('\\u{110000}'), PatternError);
+  throwsWith(() => tree('\\c'), PatternError);
+});
+
+test('backslash-b is a boundary outside a class and a backspace inside one', () => {
+  // A genuine quirk of the syntax, shared by every engine.
+  assert.equal(tree('\\b').kind, Kind.BOUNDARY);
+  assert.equal(tree('[\\b]').set.singleton, 0x08);
+});
+
+test('anchors and boundaries parse to their own nodes', () => {
+  assert.equal(tree('^').kind, Kind.ANCHOR);
+  assert.equal(tree('^').which, 'start');
+  assert.equal(tree('$').which, 'end');
+  assert.equal(tree('\\B').negated, true);
+});
+
+test('dot excludes newlines unless dotAll is set', () => {
+  assert.ok(!tree('.').set.has(0x0a));
+  assert.ok(tree('.', { dotAll: true }).set.has(0x0a));
+  assert.ok(tree('.').set.has(0x61));
+});
+
