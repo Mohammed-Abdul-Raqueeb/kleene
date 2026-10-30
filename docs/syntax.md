@@ -154,3 +154,44 @@ finite automaton, which is what this engine builds
 `(?=)`, `(?!)`, `(?<=)` and `(?<!)`. Note that `(?<` is told apart from a
 named group by the character after it, so `(?<name>a)` still works.
 
+### Also absent
+
+- Unicode property escapes (`\p{Letter}`) — these need the Unicode character
+  database, which is megabytes of tables.
+- Possessive quantifiers and atomic groups (`a*+`, `(?>a)`) — they exist to
+  control backtracking, and there is none to control.
+- Conditionals, recursion, `\G`, inline flag groups.
+
+## Limits
+
+| Limit | Value | Why |
+| --- | --- | --- |
+| `{n,m}` upper bound | 10,000 | A bounded repeat is copied out, so this is program size |
+| Group nesting | 100 | The parser recurses and the pattern is user input |
+| Program size | 100,000 instructions | Reported rather than running out of memory later |
+| Live threads | 200,000 | A ceiling that no reachable pattern should approach |
+
+## The one behavioural difference
+
+ECMAScript rejects a quantifier iteration that consumes nothing when the
+lower bound is zero. This engine does not — see
+[architecture.md](architecture.md#the-one-documented-difference) for why it
+cannot without giving up the linear-time guarantee.
+
+The effect is confined to the captures of zero-width iterations:
+
+```js
+/(b{0,2})?/.exec(' a ')[1]   // undefined  (RegExp)
+new Regex('(b{0,2})?').match(' a ')[1]   // ''  (kleene)
+```
+
+It is detectable in advance:
+
+```js
+import { Regex, hasNullableQuantifier } from '@raqueeb/kleene';
+
+hasNullableQuantifier(new Regex('(b{0,2})?').ast);  // true  -- may differ
+hasNullableQuantifier(new Regex('(b{1,2})?').ast);  // false -- will not
+```
+
+`kleene explain <pattern>` prints the same answer.
