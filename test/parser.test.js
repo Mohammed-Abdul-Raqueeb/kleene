@@ -77,3 +77,33 @@ test('an enormous bound is rejected rather than compiled', () => {
   assert.match(error.message, new RegExp(String(MAX_REPEAT)));
 });
 
+test('a quantifier with nothing to repeat is rejected', () => {
+  throwsWith(() => tree('*a'), PatternError);
+  throwsWith(() => tree('+'), PatternError);
+  throwsWith(() => tree('?'), PatternError);
+  // An anchor cannot carry one either: `^*` has no meaning.
+  throwsWith(() => tree('^*'), PatternError);
+  throwsWith(() => tree('\\b*'), PatternError);
+});
+
+test('stacked quantifiers are rejected, not nested', () => {
+  // `a**` is the shape that makes a backtracking engine explode. This engine
+  // would survive it, but accepting it would mean compiling something the
+  // author did not write.
+  const error = throwsWith(() => tree('a**'), PatternError);
+  assert.match(error.message, /cannot follow another quantifier/);
+  assert.match(error.message, /wrap the first in a group/);
+
+  throwsWith(() => tree('a+*'), PatternError);
+  throwsWith(() => tree('a{2}{3}'), PatternError);
+  // The grouped form is the way to say it, and is accepted.
+  assert.equal(tree('(?:a*)*').kind, Kind.REPEAT);
+});
+
+test('groups capture unless marked otherwise', () => {
+  assert.equal(parse('(a)').groupCount, 1);
+  assert.equal(parse('(?:a)').groupCount, 0);
+  assert.equal(parse('(a)(b)(c)').groupCount, 3);
+  assert.equal(parse('(a(b))').groupCount, 2);
+});
+
