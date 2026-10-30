@@ -107,3 +107,28 @@ test('groups capture unless marked otherwise', () => {
   assert.equal(parse('(a(b))').groupCount, 2);
 });
 
+test('named groups record their names and numbers', () => {
+  const parsed = parse('(?<first>a)(?<second>b)');
+  assert.equal(parsed.groupCount, 2);
+  assert.deepEqual([...parsed.names], [['first', 1], ['second', 2]]);
+});
+
+test('a duplicate group name is rejected', () => {
+  // Two groups of one name would make `groups.x` ambiguous, and silently
+  // keeping one is worse than refusing.
+  const error = throwsWith(() => parse('(?<x>a)(?<x>b)'), PatternError);
+  assert.match(error.message, /used twice/);
+});
+
+test('an unusable group name is rejected, quoting it', () => {
+  throwsWith(() => parse('(?<>a)'), PatternError);
+  const error = throwsWith(() => parse('(?<1a>b)'), PatternError);
+  assert.match(error.message, /1a/);
+});
+
+test('an unrecognised group marker is rejected with the alternatives', () => {
+  const error = throwsWith(() => parse('(?#comment)'), PatternError);
+  assert.match(error.message, /\(\?:/);
+  assert.match(error.message, /\(\?<name>/);
+});
+
