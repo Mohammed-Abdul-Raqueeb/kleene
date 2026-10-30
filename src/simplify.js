@@ -48,3 +48,57 @@ export function simplify(node) {
   }
 }
 
+function simplifyConcat(node) {
+  const parts = [];
+
+  for (const part of node.parts) {
+    const simplified = simplify(part);
+
+    // An empty node contributes nothing to a sequence.
+    if (simplified.kind === Kind.EMPTY) continue;
+
+    // A nested concat is flattened. `(?:ab)c` and `abc` compile identically,
+    // and the flat form is what `explain` should show.
+    if (simplified.kind === Kind.CONCAT) {
+      parts.push(...simplified.parts);
+      continue;
+    }
+
+    parts.push(simplified);
+  }
+
+  return concat(parts);
+}
+
+function simplifyAlternate(node) {
+  const options = [];
+
+  for (const option of node.options) {
+    const simplified = simplify(option);
+
+    // A nested alternation is flattened: `a|(?:b|c)` is `a|b|c`, and the
+    // compiler emits a shorter split chain for the flat form.
+    if (simplified.kind === Kind.ALTERNATE) {
+      options.push(...simplified.options);
+      continue;
+    }
+
+    options.push(simplified);
+  }
+
+  // Duplicate alternatives are dropped, keeping the first. Safe because the
+  // first is the one that would have won anyway -- the VM takes branches in
+  // order -- so removing the later copy changes nothing observable.
+  const kept = [];
+  for (const option of options) {
+    if (!kept.some((existing) => sameShape(existing, option))) kept.push(option);
+  }
+
+  // A run of single-character alternatives becomes one character class.
+  // `a|b|c` as three splits costs three instructions and three thread slots;
+  // as `[abc]` it costs one of each.
+  const merged = mergeCharsets(kept);
+
+  return alternate(merged);
+}
+
