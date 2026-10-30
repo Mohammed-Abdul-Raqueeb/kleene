@@ -150,3 +150,43 @@ test('equals compares contents, not identity', () => {
   );
 });
 
+test('has finds a code point in a many-range set', () => {
+  // The binary search, exercised over enough ranges to matter.
+  const ranges = [];
+  for (let i = 0; i < 100; i++) ranges.push([i * 10, i * 10 + 2]);
+  const set = CharSet.fromRanges(ranges);
+
+  for (let i = 0; i < 100; i++) {
+    assert.ok(set.has(i * 10), `holds ${i * 10}`);
+    assert.ok(set.has(i * 10 + 2), `holds ${i * 10 + 2}`);
+    assert.ok(!set.has(i * 10 + 5), `does not hold ${i * 10 + 5}`);
+  }
+});
+
+test('the named classes hold what their names say', () => {
+  assert.ok(CLASSES.d.has(0x30) && CLASSES.d.has(0x39));
+  assert.ok(!CLASSES.d.has(0x61));
+
+  assert.ok(CLASSES.w.has(0x61) && CLASSES.w.has(0x5a) && CLASSES.w.has(0x5f));
+  assert.ok(CLASSES.w.has(0x39));
+  assert.ok(!CLASSES.w.has(0x2d));
+
+  assert.ok(CLASSES.s.has(0x20) && CLASSES.s.has(0x09) && CLASSES.s.has(0x0a));
+  assert.ok(CLASSES.s.has(0xa0), 'and the non-breaking space, as JavaScript does');
+  assert.ok(!CLASSES.s.has(0x61));
+});
+
+test('the negated classes are exactly the complements', () => {
+  assert.ok(NEGATED_CLASSES.D.equals(CLASSES.d.negate()));
+  assert.ok(NEGATED_CLASSES.W.equals(CLASSES.w.negate()));
+  assert.ok(NEGATED_CLASSES.S.equals(CLASSES.s.negate()));
+});
+
+test('dot excludes every line terminator', () => {
+  assert.ok(!DOT_NO_NEWLINE.has(0x0a));
+  assert.ok(!DOT_NO_NEWLINE.has(0x0d));
+  assert.ok(!DOT_NO_NEWLINE.has(0x2028), 'the line separator');
+  assert.ok(!DOT_NO_NEWLINE.has(0x2029), 'the paragraph separator');
+  assert.ok(DOT_NO_NEWLINE.has(0x61));
+});
+
