@@ -62,3 +62,23 @@ test('ranges given out of order are sorted', () => {
   assert.deepEqual(set.ranges, [[0x61, 0x63], [0x70, 0x72]]);
 });
 
+test('a set from a string holds its characters', () => {
+  const set = CharSet.fromString('abc');
+  assert.ok(set.has(0x61));
+  assert.ok(set.has(0x63));
+  assert.equal(set.size, 3);
+});
+
+test('a set from a string handles characters above the BMP', () => {
+  const set = CharSet.fromString('\u{1f600}');
+  assert.ok(set.has(0x1f600));
+  assert.equal(set.size, 1);
+});
+
+test('union merges two sets', () => {
+  const set = CharSet.of(0x61).union(CharSet.of(0x63));
+  assert.ok(set.has(0x61));
+  assert.ok(set.has(0x63));
+  assert.ok(!set.has(0x62));
+});
+
