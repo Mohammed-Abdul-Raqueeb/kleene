@@ -220,3 +220,16 @@ test('explain names the named groups', async () => {
   assert.match(result.out, /word/);
 });
 
+test('explain shows the simplifier at work', async () => {
+  // `a|b` becomes one character class, which is worth being able to see.
+  const result = await cli(['explain', 'a|b|c']);
+  assert.match(result.out, /simplified\s+\/\[a-c\]\//);
+});
+
+// ---- files and input -----------------------------------------------------
+
+test('a named file is read', async () => {
+  const result = await cli(['find', '\\d+', 'in.txt'], { files: { 'in.txt': 'a1b22' } });
+  assert.equal(result.out, '1\n22\n');
+});
+
