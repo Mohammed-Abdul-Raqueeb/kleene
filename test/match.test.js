@@ -53,3 +53,32 @@ test('lazy quantifiers take as little as they can', () => {
   matches('a??', 'a', '');
 });
 
+test('bounded repeats honour both ends', () => {
+  matches('a{2}', 'aaa', 'aa');
+  matches('a{2}', 'a', null);
+  matches('a{2,}', 'aaaa', 'aaaa');
+  matches('a{2,3}', 'aaaa', 'aaa');
+  matches('a{0,2}', 'bbb', '');
+});
+
+test('capture groups record what they matched', () => {
+  captures('(a)(b)', 'ab', ['ab', 'a', 'b']);
+  captures('(a(b))', 'ab', ['ab', 'ab', 'b']);
+  captures('(?:a)(b)', 'ab', ['ab', 'b']);
+});
+
+test('a group that did not participate reads as undefined', () => {
+  // Not an empty string: the distinction is what `(a)|(b)` depends on.
+  captures('(a)|(b)', 'b', ['b', undefined, 'b']);
+  captures('x(y)?z', 'xz', ['xz', undefined]);
+});
+
+test('a quantified group clears its captures on each iteration', () => {
+  // ECMAScript's rule, and one this engine had to be taught: the first pass
+  // of `(?:(a)|(b))+` sets group 1, and the second pass must unset it again
+  // rather than leaving the stale 'a' behind.
+  captures('(?:(a)|(b))+', 'ab', ['ab', undefined, 'b']);
+  captures('(a)+', 'aaa', ['aaa', 'a']);
+  captures('(?:(a)(x)?)+', 'aa', ['aa', 'a', undefined]);
+});
+
