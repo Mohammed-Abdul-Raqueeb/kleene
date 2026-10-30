@@ -119,3 +119,32 @@ function sweep({ seed, rounds, depth = 2 }) {
   return { compared, skippedNullable, skippedInvalid, mismatches };
 }
 
+test('generated patterns agree with RegExp exactly', () => {
+  const result = sweep({ seed: 20261030, rounds: 3000 });
+
+  assert.deepEqual(
+    result.mismatches.slice(0, 5),
+    [],
+    `${result.mismatches.length} of ${result.compared} comparisons disagreed`,
+  );
+  // Guards against the sweep silently comparing nothing, which would make
+  // this test pass by doing no work.
+  assert.ok(result.compared > 800, `expected a real sample, compared ${result.compared}`);
+});
+
+test('a second seed agrees too', () => {
+  // A different seed reaches different shapes. One seed passing could be
+  // luck; two is evidence.
+  const result = sweep({ seed: 777, rounds: 3000 });
+
+  assert.deepEqual(result.mismatches.slice(0, 5), [], 'mismatches on the second seed');
+  assert.ok(result.compared > 800, `compared ${result.compared}`);
+});
+
+test('deeper patterns agree too', () => {
+  const result = sweep({ seed: 31337, rounds: 1200, depth: 3 });
+
+  assert.deepEqual(result.mismatches.slice(0, 5), [], 'mismatches at depth 3');
+  assert.ok(result.compared > 200, `compared ${result.compared}`);
+});
+
