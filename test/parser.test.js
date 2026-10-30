@@ -33,3 +33,23 @@ test('alternation splits at the top level', () => {
   assert.equal(node.options[0].kind, Kind.CONCAT);
 });
 
+test('an empty alternative is allowed', () => {
+  // `a|` matches "a" or nothing, which is legal and occasionally meant.
+  const node = tree('a|');
+  assert.equal(node.options.length, 2);
+  assert.equal(node.options[1].kind, Kind.EMPTY);
+});
+
+test('the three shorthand quantifiers map onto bounds', () => {
+  assert.deepEqual(pick(tree('a*')), { min: 0, max: Infinity, greedy: true });
+  assert.deepEqual(pick(tree('a+')), { min: 1, max: Infinity, greedy: true });
+  assert.deepEqual(pick(tree('a?')), { min: 0, max: 1, greedy: true });
+});
+
+test('a trailing question mark makes a quantifier lazy', () => {
+  assert.equal(pick(tree('a*?')).greedy, false);
+  assert.equal(pick(tree('a+?')).greedy, false);
+  assert.equal(pick(tree('a??')).greedy, false);
+  assert.equal(pick(tree('a{1,2}?')).greedy, false);
+});
+
