@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets a run be started by hand. The push that creates a repository's
+  # default branch does not itself trigger a workflow, so without this a
+  # fresh clone has a CI badge that has never been green.
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing combination should not hide the others.
+      fail-fast: false
+      matrix:
+        include:
+          # 20 is the floor, which is where node:test became stable. The glob
+          # below is expanded by the shell, not by node -- node only learned
+          # to expand one itself in 22, so a quoted pattern would fail here.
+          - os: ubuntu-latest
+            node: '20'
+          - os: ubuntu-latest
+            node: '22'
+          - os: ubuntu-latest
+            node: '24'
+          # One version each on the other platforms. The CLI touches paths
+          # and stdio, which differ enough per platform to be worth checking;
+          # the full matrix everywhere would triple the bill for little more.
+          - os: windows-latest
+            node: '22'
+          - os: macos-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No `npm ci`: there is no lock file, because there are no dependencies.
+      - name: Test
+        run: node --test test/*.test.js
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tools/lint.js
+
+  dependencies:
+    name: Dependency count is zero
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Assert the manifest declares nothing
+        run: |
+          node -e '
+            const pkg = require("./package.json");
+            const declared = Object.keys({
+              ...pkg.dependencies,
+              ...pkg.devDependencies,
+              ...pkg.peerDependencies,
+              ...pkg.optionalDependencies,
+            });
+            if (declared.length > 0) {
+              console.error("declared dependencies: " + declared.join(", "));
+              process.exit(1);
+            }
+            console.log("package.json declares no dependencies");
+          '
+
+      - name: Assert there is no lock file and nothing installed
+        run: |
+          for unwanted in package-lock.json npm-shrinkwrap.json yarn.lock pnpm-lock.yaml node_modules; do
+            if [ -e "$unwanted" ]; then
+              echo "found $unwanted; this project has no dependencies"
+              exit 1
+            fi
+          done
+          echo "no lock file and nothing installed"
+
+      # The name is quoted because it contains a colon followed by a space,
+      # which an unquoted YAML scalar may not -- the parser would read
+      # "node: or relative" as a nested mapping and reject the whole file.
+      - name: "Assert every import is node: or relative"
+        run: |
+          # sed rather than grep -P: the PCRE flag depends on the locale and
+          # fails outright under a non-UTF-8 one, which would make this check
+          # pass silently rather than fail loudly.
+          grep -rhoE "from '[^']+'" --include='*.js' src/ bin/ test/ tools/ bench/ \
+            | sed -E "s/from '//; s/'$//" \
+            | grep -vE '^node:' \
+            | grep -vE '^\.' \
+            | sort -u > foreign-imports.txt
+          if [ -s foreign-imports.txt ]; then
+            echo "imports from outside the standard library:"
+            cat foreign-imports.txt
+            exit 1
+          fi
+          echo "every import is node: or relative"
+
+  smoke:
+    name: End-to-end smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Exercise the command line
+        run: |
+          set -euo pipefail
+          kleene() { node bin/kleene.js "$@"; }
+
+          echo "--- version ---"
+          kleene --version | grep -q '^kleene [0-9]'
+
+          echo "--- find prints every match ---"
+          printf 'a1b22c333' | kleene find '[0-9]+' > found.txt
+          printf '1\n22\n333\n' | diff - found.txt
+
+          echo "--- match filters lines, with numbers ---"
+          printf 'ok\nERROR x\nfine\n' | kleene match -n 'ERROR' | grep -qx '2:ERROR x'
+
+          echo "--- replace expands group references ---"
+          printf 'hello world' | kleene replace '(\w+) (\w+)' '$2 $1' | grep -qx 'world hello'
+
+          echo "--- split breaks on every occurrence ---"
+          printf 'a,b,c' | kleene split ',' > pieces.txt
+          printf 'a\nb\nc\n' | diff - pieces.txt
+
+          echo "--- explain shows the compiled program ---"
+          kleene explain '(a|b)+c' | grep -q 'instructions'
+          kleene explain '(a|b)+c' | grep -q 'parity  guaranteed'
+          kleene explain '(b?)*' | grep -q 'parity  not guaranteed'
+
+          echo "--- a malformed pattern exits 3 with a caret ---"
+          set +e
+          kleene find 'a[' 2>err.txt
+          code=$?
+          set -e
+          test "$code" = "3"
+          grep -q 'PatternError' err.txt
+          grep -q '\^' err.txt
+
+          echo "--- an unsupported construct exits 4, distinctly ---"
+          set +e
+          printf 'aa' | kleene find '(a)\1' 2>unsupported.txt
+          code=$?
+          set -e
+          test "$code" = "4"
+          grep -q 'UnsupportedError' unsupported.txt
+
+          echo "--- nothing matched exits 1, as grep does ---"
+          set +e
+          printf 'abc' | kleene find 'zzz' >/dev/null
+          test "$?" = "1"
+          set -e
+
+          echo "--- the headline claim, end to end ---"
+          # A backtracking engine needs longer than the universe has existed
+          # for this. If it ever regresses, this step hangs and the job times
+          # out rather than quietly passing.
+          printf '%s' "$(head -c 20000 /dev/zero | tr '\0' 'a')" > many-as.txt
+          set +e
+          kleene find '(a+)+b' many-as.txt >/dev/null
+          test "$?" = "1"
+          set -e
+
+          echo "All smoke checks passed."
+
+  bench:
+    name: Benchmarks run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Not checked for speed -- a shared runner's numbers mean nothing. This
+      # asserts the benchmarks still execute, so they cannot rot into
+      # something that no longer runs at all.
+      - run: node bench/run.js
