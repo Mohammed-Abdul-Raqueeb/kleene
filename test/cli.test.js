@@ -51,3 +51,18 @@ test('replace takes its replacement as the third positional', () => {
   assert.deepEqual(options.files, ['in.txt']);
 });
 
+test('flags accumulate from both spellings', () => {
+  assert.equal(parseArgs(['find', 'a', '-i']).flags, 'i');
+  assert.equal(parseArgs(['find', 'a', '--flags', 'gm']).flags, 'gm');
+  assert.equal(parseArgs(['find', 'a', '-i', '-f', 'm']).flags, 'im');
+});
+
+test('--name=value is accepted as well as --name value', () => {
+  assert.equal(parseArgs(['find', 'a', '--flags=gi']).flags, 'gi');
+});
+
+test('an option missing its value is reported by name', () => {
+  const error = throwsWith(() => parseArgs(['find', 'a', '--flags']), Error);
+  assert.match(error.message, /--flags needs a value/);
+});
+
