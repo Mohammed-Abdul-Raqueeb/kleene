@@ -82,3 +82,25 @@ test('a quantified group clears its captures on each iteration', () => {
   captures('(?:(a)(x)?)+', 'aa', ['aa', 'a', undefined]);
 });
 
+test('named groups appear under their names', () => {
+  const found = new Regex('(?<year>\\d{4})-(?<month>\\d{2})').match('on 2026-10-30');
+  assert.equal(found.groups.year, '2026');
+  assert.equal(found.groups.month, '10');
+  assert.equal(found[1], '2026');
+  assert.equal(found.index, 3);
+});
+
+test('groups is undefined when there are no named groups', () => {
+  // What RegExp does, and callers branch on it.
+  assert.equal(new Regex('(a)').match('a').groups, undefined);
+});
+
+test('the anchors hold only where they should', () => {
+  matches('^a', 'ab', 'a');
+  matches('^b', 'ab', null);
+  matches('a$', 'ba', 'a');
+  matches('b$', 'ba', null);
+  matches('^ab$', 'ab', 'ab');
+  matches('^$', '', '');
+});
+
