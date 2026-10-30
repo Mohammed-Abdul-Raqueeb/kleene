@@ -53,3 +53,27 @@ test('a trailing question mark makes a quantifier lazy', () => {
   assert.equal(pick(tree('a{1,2}?')).greedy, false);
 });
 
+test('braced bounds parse in all three forms', () => {
+  assert.deepEqual(pick(tree('a{3}')), { min: 3, max: 3, greedy: true });
+  assert.deepEqual(pick(tree('a{2,}')), { min: 2, max: Infinity, greedy: true });
+  assert.deepEqual(pick(tree('a{1,4}')), { min: 1, max: 4, greedy: true });
+});
+
+test('braces that are not bounds are literal', () => {
+  // `a{` and `a{x}` are literal braces in every engine that matters, and
+  // refusing them would reject patterns that work elsewhere.
+  assert.equal(render(tree('a{')), 'a{');
+  assert.equal(render(tree('a{x}')), 'a{x}');
+  assert.equal(render(tree('a{,2}')), 'a{,2}');
+});
+
+test('descending bounds are rejected', () => {
+  const error = throwsWith(() => tree('a{3,1}'), PatternError);
+  assert.match(error.message, /counts down/);
+});
+
+test('an enormous bound is rejected rather than compiled', () => {
+  const error = throwsWith(() => tree(`a{1,${MAX_REPEAT + 1}}`), PatternError);
+  assert.match(error.message, new RegExp(String(MAX_REPEAT)));
+});
+
