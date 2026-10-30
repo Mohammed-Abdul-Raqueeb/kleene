@@ -110,3 +110,47 @@ behave the way they do in the language they were written for.
 
 An empty alternative is allowed: `a|` matches `"a"` or nothing.
 
+## Flags
+
+| Letter | Effect |
+| --- | --- |
+| `g` | find every match, and track `lastIndex` on `exec` |
+| `i` | match either case |
+| `m` | `^` and `$` hold at every line |
+| `s` | `.` matches a line terminator too |
+| `u` | accepted and ignored — this engine is always code-point based |
+| `y` | anchor each `exec` to `lastIndex` |
+
+A repeated letter is an error rather than being ignored, because it is a typo.
+
+## What this engine does not support
+
+Both are refused at parse time with a message saying why, and both raise
+`UnsupportedError`, which is a subclass of `PatternError` — so a caller can
+tell "your pattern is wrong" from "this tool cannot do that".
+
+### Backreferences
+
+```
+PatternError: backreferences are not supported: matching them is NP-hard in
+general, and this engine promises linear time
+  /(a)\1/
+     ^
+```
+
+`\1`–`\9` and `\k<name>`. A backreference makes a thread's future depend on
+text it already consumed, which is exactly what the linear-time bound rules
+out.
+
+### Lookaround
+
+```
+UnsupportedError: lookahead is not supported: it cannot be expressed as a
+finite automaton, which is what this engine builds
+  /(?=a)/
+   ^
+```
+
+`(?=)`, `(?!)`, `(?<=)` and `(?<!)`. Note that `(?<` is told apart from a
+named group by the character after it, so `(?<name>a)` still works.
+
