@@ -180,3 +180,15 @@ test('replace without a replacement is a usage error', async () => {
   assert.match(result.err, /needs a replacement/);
 });
 
+test('replace --no-newline leaves the output as it is', async () => {
+  const result = await cli(['replace', 'a', 'X', '--no-newline'], { stdin: 'a' });
+  assert.equal(result.out, 'X');
+});
+
+// ---- split ---------------------------------------------------------------
+
+test('split prints the pieces one per line', async () => {
+  const result = await cli(['split', ','], { stdin: 'a,b,c' });
+  assert.equal(result.out, 'a\nb\nc\n');
+});
+
