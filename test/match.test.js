@@ -293,3 +293,49 @@ test('a nested quantifier does not blow up', () => {
   assert.ok(elapsed < 2000, `expected well under two seconds, took ${elapsed.toFixed(0)}ms`);
 });
 
+test('time grows linearly in the subject, not exponentially', () => {
+  const regex = new Regex('(x+x+)+y');
+
+  const time = (length) => {
+    const subject = 'x'.repeat(length);
+    const started = performance.now();
+    regex.test(subject);
+    return performance.now() - started;
+  };
+
+  // Warm up, so the first measurement is not dominated by the optimiser.
+  time(200);
+
+  const small = Math.max(time(200), 0.05);
+  const large = time(800);
+
+  // Four times the input should be roughly four times the work. A generous
+  // bound, because a shared CI runner is noisy -- the point is to catch
+  // exponential growth, where this ratio would be astronomical.
+  assert.ok(
+    large / small < 60,
+    `four times the input took ${(large / small).toFixed(1)}x the time`,
+  );
+});
+
+// ---- agreement with RegExp -----------------------------------------------
+
+test('realistic patterns agree with RegExp exactly', () => {
+  const cases = [
+    ['\\d{3}-\\d{4}', 'call 555-1234 now'],
+    ['[a-z]+@[a-z]+\\.[a-z]{2,}', 'write to me@example.com please'],
+    ['^(\\w+)\\s+(\\w+)$', 'hello world'],
+    ['(https?)://([^/]+)', 'see http://example.com here'],
+    ['colou?r', 'the color red'],
+    ['(a|b)+c', 'xababcx'],
+    ['\\b\\w{4}\\b', 'a word here'],
+    ['[^,]+', 'a,b'],
+    ['(\\d+)\\.(\\d+)', 'version 1.22'],
+    ['<([a-z]+)>', 'a <div> here'],
+  ];
+
+  for (const [pattern, subject] of cases) {
+    agreesWithRegExp(pattern, subject);
+    agreesWithRegExp(pattern, subject, 'i');
+  }
+});
