@@ -267,3 +267,29 @@ test('split honours a limit', () => {
   assert.deepEqual(new Regex(',', 'g').split('a,b,c', 0), []);
 });
 
+test('test reports whether there is a match at all', () => {
+  assert.equal(new Regex('a').test('bab'), true);
+  assert.equal(new Regex('z').test('bab'), false);
+});
+
+test('toString renders the pattern and its flags', () => {
+  assert.equal(new Regex('a.b', 'gi').toString(), '/a.b/gi');
+});
+
+// ---- the headline property ------------------------------------------------
+
+test('a nested quantifier does not blow up', () => {
+  // (a+)+b against sixty a's takes a backtracking engine longer than the
+  // universe has existed. The thread list can hold at most one thread per
+  // instruction, so this is linear whatever the input.
+  const regex = new Regex('(a+)+b');
+  const started = performance.now();
+
+  for (const length of [50, 200, 1000]) {
+    assert.equal(regex.test('a'.repeat(length)), false);
+  }
+
+  const elapsed = performance.now() - started;
+  assert.ok(elapsed < 2000, `expected well under two seconds, took ${elapsed.toFixed(0)}ms`);
+});
+
