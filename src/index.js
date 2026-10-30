@@ -50,3 +50,39 @@ export function test(pattern, subject, flags) {
   return new Regex(pattern, flags).test(subject);
 }
 
+/**
+ * The first match of a pattern in a subject.
+ *
+ * @param {string} pattern the pattern text
+ * @param {string} subject the text to search
+ * @param {string} [flags] the flag letters
+ * @returns {object|null} the match, or null
+ */
+export function match(pattern, subject, flags) {
+  return new Regex(pattern, flags).match(subject);
+}
+
+/**
+ * Every match of a pattern in a subject.
+ *
+ * @param {string} pattern the pattern text
+ * @param {string} subject the text to search
+ * @param {string} [flags] the flag letters
+ * @returns {object[]} the matches, in order
+ */
+export function matchAll(pattern, subject, flags) {
+  return [...new Regex(pattern, flags || 'g').matchAll(subject)];
+}
+
+/**
+ * Replaces matches in a subject.
+ *
+ * @param {string} pattern the pattern text
+ * @param {string} subject the text to search
+ * @param {string|Function} replacement the replacement
+ * @param {string} [flags] the flag letters
+ * @returns {string} the result
+ */
+export function replace(pattern, subject, replacement, flags) {
+  return new Regex(pattern, flags).replace(subject, replacement);
+}
