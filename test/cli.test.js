@@ -233,3 +233,25 @@ test('a named file is read', async () => {
   assert.equal(result.out, '1\n22\n');
 });
 
+test('several files are concatenated', async () => {
+  const result = await cli(['find', '\\d', 'a.txt', 'b.txt'], {
+    files: { 'a.txt': 'x1\n', 'b.txt': 'y2\n' },
+  });
+  assert.equal(result.out, '1\n2\n');
+});
+
+test('a missing file is reported without a stack trace', async () => {
+  const result = await cli(['find', 'a', 'nope.txt']);
+  assert.equal(result.code, 2);
+  assert.match(result.err, /no such file/);
+});
+
+// ---- failure modes -------------------------------------------------------
+
+test('no command at all is a usage error pointing at help', async () => {
+  const result = await cli([]);
+  assert.equal(result.code, 2);
+  assert.match(result.err, /a command is required/);
+  assert.match(result.err, /kleene help/);
+});
+
