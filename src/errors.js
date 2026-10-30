@@ -43,3 +43,38 @@ export class PatternError extends SyntaxError {
   }
 }
 
+/**
+ * A pattern this engine deliberately does not support.
+ *
+ * Separate from {@link PatternError} because the two mean different things to
+ * the user. A parse error is a mistake in the pattern; this is a pattern that
+ * is perfectly valid elsewhere and will never work here. Telling them apart
+ * is the difference between "fix your typo" and "use a different tool".
+ */
+export class UnsupportedError extends PatternError {
+  /**
+   * @param {string} message what is unsupported, and why
+   * @param {object} [options] see {@link PatternError}
+   */
+  constructor(message, options) {
+    super(message, options);
+    this.name = 'UnsupportedError';
+  }
+}
+
+/**
+ * Something went wrong at match time rather than at parse time.
+ *
+ * Rare by design: almost everything that can go wrong is caught while
+ * parsing. What is left is a limit being hit, such as a program larger than
+ * the engine will build.
+ */
+export class MatchError extends Error {
+  /**
+   * @param {string} message what went wrong
+   */
+  constructor(message) {
+    super(message);
+    this.name = 'MatchError';
+  }
+}
