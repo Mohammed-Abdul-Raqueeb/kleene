@@ -148,3 +148,48 @@ test('deeper patterns agree too', () => {
   assert.ok(result.compared > 200, `compared ${result.compared}`);
 });
 
+test('the sweep actually excludes the nullable cases it claims to', () => {
+  // If this were zero, the exclusion would be doing nothing and the two
+  // earlier tests would be making a stronger claim than the engine supports.
+  const result = sweep({ seed: 20261030, rounds: 1000 });
+  assert.ok(
+    result.skippedNullable > 100,
+    `expected the generator to produce nullable quantifiers, skipped ${result.skippedNullable}`,
+  );
+});
+
+test('the boundary is where the engine says it is', () => {
+  // The documented difference, pinned so a change to it is deliberate.
+  // ECMAScript refuses the zero-width iteration and leaves the group unset.
+  const reference = /(b{0,2})?/.exec(' a ');
+  assert.equal(reference[1], undefined, 'RegExp leaves the group unset');
+
+  const mine = new Regex('(b{0,2})?').match(' a ');
+  assert.equal(mine[1], '', 'this engine records the empty iteration');
+
+  // And it is detectable in advance, which is what makes it a boundary
+  // rather than a surprise.
+  assert.ok(hasNullableQuantifier(new Regex('(b{0,2})?').ast));
+  assert.ok(!hasNullableQuantifier(new Regex('(b{1,2})?').ast));
+});
+
+test('every pattern in the supported subset either parses or is refused by name', () => {
+  // No generated pattern should produce an error this engine does not
+  // explain. A bare TypeError or RangeError escaping would mean a hole.
+  const rnd = random(4242);
+  const pick = (list) => list[Math.floor(rnd() * list.length)];
+
+  for (let round = 0; round < 1500; round++) {
+    const pattern = generate(rnd, 2);
+    const flags = pick(FLAG_SETS);
+
+    try {
+      new Regex(pattern, flags);
+    } catch (error) {
+      assert.ok(
+        error.name === 'PatternError' || error.name === 'UnsupportedError',
+        `/${pattern}/${flags} threw an unexplained ${error.name}: ${error.message}`,
+      );
+    }
+  }
+});
