@@ -55,3 +55,55 @@ blow up.
 Each extra character doubles the time on the right and adds a constant on the
 left. At 60 a's a backtracking engine would outlast the universe.
 
+### What it costs
+
+**No backreferences.** `(a+)\1` needs a thread's future to depend on text it
+has already consumed, so two threads at the same program counter are no
+longer interchangeable and the bound collapses. Matching backreferences is
+NP-hard in general, which is the formal version of the same statement.
+
+**No lookaround.** `(?=a)` is an assertion about a different parse of the
+same input, which a single pass over the input cannot evaluate.
+
+Both are refused **by name** at parse time, with a message saying why, rather
+than this file failing obscurely later.
+
+**Slower on ordinary patterns.** About fifty times slower than `RegExp` on a
+pattern that backtracks fine, and that is a fair trade to state plainly:
+`RegExp` is years of C++ with a JIT, and the guarantee is the product rather
+than the speed.
+
+## Greediness is the order of two integers
+
+There is no priority queue and no backtracking. A `split` instruction has two
+targets, and the VM follows `x` before `y`. The compiler puts the preferred
+branch in `x`:
+
+```
+greedy a*            lazy a*?
+  L1: split L2, L3     L1: split L3, L2
+  L2: char a           L2: char a
+      jump L1              jump L1
+  L3:                  L3:
+```
+
+Threads run in order and the first to reach `match` wins, so ordering the
+branches orders the preferences. That is all `*` versus `*?` is.
+
+## Character sets are range lists
+
+`\w` under the `i` flag, or `[^\n]`, covers tens of thousands of code points.
+A `Set` of those is megabytes; a bitmap over Unicode is 136KB per class. A
+sorted list of inclusive ranges is four entries, and `has` is a binary search
+over it.
+
+Normalisation — sorted, non-overlapping, **non-adjacent** — is what makes
+union and negation cheap and equality a plain comparison. The adjacency part
+matters more than it looks: without joining `[a-b]` and `[c-d]`, a class
+built one character at a time would be one range per character and every
+lookup would walk all of them.
+
+Case folding widens the set rather than lowercasing the subject. Lowercasing
+the input would shift the offsets a match reports whenever a character's
+lower case is a different length, which happens for real code points.
+
