@@ -150,3 +150,28 @@ test('the named classes match what they say', () => {
   matches('\\D+', '12ab34', 'ab');
 });
 
+test('code points above the BMP count as one character', () => {
+  // Two things have to be right for this: the VM walks code points, and so
+  // does the parser -- indexing the pattern as UTF-16 would apply the `+` to
+  // half a surrogate pair, which never matches anything.
+  matches('.', '\u{1f600}', '\u{1f600}');
+  matches('^.$', '\u{1f600}', '\u{1f600}');
+  matches('\u{1f600}+', 'a\u{1f600}\u{1f600}b', '\u{1f600}\u{1f600}');
+  matches('[\u{1f600}]', '\u{1f600}', '\u{1f600}');
+});
+
+test('offsets are UTF-16 indices, as String methods report them', () => {
+  // So a caller can slice the original string with what it gets back.
+  const subject = '\u{1f600}ab';
+  const found = new Regex('ab').match(subject);
+  assert.equal(found.index, 2);
+  assert.equal(subject.slice(found.index), 'ab');
+  assert.equal(found.index, subject.indexOf('ab'));
+});
+
+test('matchAll yields every match without touching lastIndex', () => {
+  const regex = new Regex('a', 'g');
+  allMatches('a', 'aba', ['a', 'a']);
+  assert.equal(regex.lastIndex, 0, 'matchAll leaves lastIndex alone');
+});
+
