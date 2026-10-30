@@ -10,3 +10,25 @@ test('a literal matches where it occurs', () => {
   matches('a', 'a', 'a');
 });
 
+test('the empty pattern matches at the start', () => {
+  const found = new Regex('').match('abc');
+  assert.equal(found[0], '');
+  assert.equal(found.index, 0);
+});
+
+test('a search finds the leftmost match', () => {
+  const found = new Regex('a').match('bbab');
+  assert.equal(found.index, 2);
+});
+
+test('the leftmost match wins over a longer one further right', () => {
+  // Leftmost-first, as Perl and JavaScript do. A POSIX engine would prefer
+  // the longest, and the difference is visible here.
+  matches('a|ab', 'xab', 'a');
+});
+
+test('alternation prefers the earlier branch', () => {
+  matches('ab|a', 'ab', 'ab');
+  matches('a|ab', 'ab', 'a');
+});
+
