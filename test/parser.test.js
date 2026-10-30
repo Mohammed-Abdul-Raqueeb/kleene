@@ -279,3 +279,30 @@ test('backreferences are refused as unsupported, not as malformed', () => {
   throwsWith(() => tree('(?<x>a)\\k<x>'), UnsupportedError);
 });
 
+test('lookaround is refused as unsupported, saying why', () => {
+  const ahead = throwsWith(() => tree('(?=a)'), UnsupportedError);
+  assert.match(ahead.message, /finite automaton/);
+
+  throwsWith(() => tree('(?!a)'), UnsupportedError);
+  throwsWith(() => tree('(?<=a)'), UnsupportedError);
+  throwsWith(() => tree('(?<!a)'), UnsupportedError);
+});
+
+test('a lookbehind is told apart from a named group', () => {
+  // Both start `(?<`, and the next character is the only difference.
+  assert.equal(parse('(?<name>a)').groupCount, 1);
+  throwsWith(() => tree('(?<=a)'), UnsupportedError);
+});
+
+test('deep nesting is reported rather than overflowing the stack', () => {
+  const deep = '('.repeat(MAX_DEPTH + 5) + 'a' + ')'.repeat(MAX_DEPTH + 5);
+  const error = throwsWith(() => tree(deep), PatternError);
+  assert.match(error.message, /nest more than/);
+});
+
+test('an error carries the index it happened at', () => {
+  const error = throwsWith(() => tree('ab[c'), PatternError);
+  assert.equal(error.index, 2);
+  assert.equal(error.pattern, 'ab[c');
+});
+
