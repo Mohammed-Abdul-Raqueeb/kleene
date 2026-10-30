@@ -190,3 +190,19 @@ test('dot excludes every line terminator', () => {
   assert.ok(DOT_NO_NEWLINE.has(0x61));
 });
 
+test('a set describes itself readably', () => {
+  assert.equal(CharSet.of(0x61).toString(), 'a');
+  assert.equal(CharSet.range(0x61, 0x63).toString(), '[a-c]');
+  assert.equal(CharSet.of(0x0a).toString(), '\\n');
+  assert.equal(CharSet.empty().toString(), '[]');
+});
+
+test('a mostly-complete set is described by what it excludes', () => {
+  // So `[^\n]` reads as itself rather than as four enormous ranges.
+  assert.equal(CharSet.of(0x0a).negate().toString(), '[^\\n]');
+});
+
+test('an unprintable code point is described in hex', () => {
+  assert.equal(CharSet.of(0x1f600).toString(), '\\u{1f600}');
+  assert.equal(CharSet.of(0x01).toString(), '\\u{1}');
+});
