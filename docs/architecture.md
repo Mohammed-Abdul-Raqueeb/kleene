@@ -107,3 +107,52 @@ Case folding widens the set rather than lowercasing the subject. Lowercasing
 the input would shift the offsets a match reports whenever a character's
 lower case is a different length, which happens for real code points.
 
+## Code points, not UTF-16 units
+
+Both the parser and the VM iterate code points. Two separate bugs came from
+getting this wrong:
+
+- The **VM** indexing the subject directly would make an emoji two characters,
+  so `.` would match half of one and a class could split a surrogate pair.
+- The **parser** indexing the pattern directly split `/😀+/` into a high
+  surrogate, a low surrogate and a `+` — so the `+` applied to half a
+  character, which can never match.
+
+Offsets reported in a match are converted back to UTF-16, so a caller can
+slice the original string with what it gets. `match.index` equals
+`subject.indexOf(...)`, which would not hold if code-point indices leaked out.
+
+## Captures clear on each iteration
+
+ECMAScript resets a quantified group's captures every time round the loop, so
+`(?:(a)|(b))+` against `"ab"` leaves group 1 **unset** rather than holding
+the `a` from the first pass.
+
+This engine did not do that at first, and the differential test found it. The
+fix is a `clear` instruction at the top of each iteration, listing the slots
+of the groups inside the body. Cheap, and it removed a whole class of
+divergence from patterns that were otherwise well inside the promised range.
+
+## The one documented difference
+
+ECMAScript also **rejects a zero-width iteration** when a quantifier's lower
+bound is zero. That is why `/(b{0,2})?/ ` leaves its group `undefined`: the
+iteration matched the empty string, so the engine discards it and takes the
+zero-iterations path instead.
+
+This engine does not implement that rule, because doing so means a thread
+carrying the input position each iteration began at — and a thread's identity
+would then include that position, which breaks the one-thread-per-instruction
+bound the linear-time guarantee rests on.
+
+So the trade is stated as a property rather than hidden as a quirk:
+
+> For any pattern where no quantifier's body can match the empty string, this
+> engine agrees with `RegExp` exactly.
+
+`nullable(ast)` and `hasNullableQuantifier(ast)` are exported so a caller can
+ask in advance, `kleene explain` prints the answer, and the differential test
+uses the same function to draw its boundary. Measured: **5,035 generated
+patterns compared, 0 disagreements** once nullable quantifier bodies are
+excluded.
+
