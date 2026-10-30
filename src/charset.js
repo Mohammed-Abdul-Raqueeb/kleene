@@ -346,3 +346,19 @@ export const CLASSES = {
   ]),
 };
 
+/** The negated named classes, computed once. */
+export const NEGATED_CLASSES = {
+  D: CLASSES.d.negate(),
+  W: CLASSES.w.negate(),
+  S: CLASSES.s.negate(),
+};
+
+/** Everything except a line terminator, which is what `.` means without `s`. */
+export const DOT_NO_NEWLINE = CharSet.fromRanges([
+  [0x0a, 0x0a], [0x0d, 0x0d], [0x2028, 0x2029],
+]).negate();
+
+/** The line terminators, for the `m` flag's anchors. */
+export const LINE_TERMINATORS = CharSet.fromRanges([
+  [0x0a, 0x0a], [0x0d, 0x0d], [0x2028, 0x2029],
+]);
