@@ -76,3 +76,100 @@ export class Program {
   }
 }
 
+function describe(instruction) {
+  switch (instruction.op) {
+    case Op.CHAR:
+      return `char    ${instruction.set}`;
+    case Op.SPLIT:
+      return `split   ${instruction.x}, ${instruction.y}`;
+    case Op.JUMP:
+      return `jump    ${instruction.x}`;
+    case Op.SAVE:
+      // Even slots are group starts, odd are ends, so slot 2 is "group 1
+      // starts here". Printing it that way saves the reader the arithmetic.
+      return `save    ${instruction.slot}`
+        + `   (group ${instruction.slot >> 1} ${instruction.slot % 2 === 0 ? 'start' : 'end'})`;
+    case Op.CLEAR:
+      return `clear   ${instruction.slots.join(', ')}`;
+    case Op.ASSERT_START:
+      return 'assert  start';
+    case Op.ASSERT_END:
+      return 'assert  end';
+    case Op.ASSERT_BOUNDARY:
+      return `assert  ${instruction.negated ? 'not-' : ''}word-boundary`;
+    case Op.MATCH:
+      return 'match';
+    default:
+      return `?       ${instruction.op}`;
+  }
+}
+
+/** Builds an instruction list, resolving jumps as it goes. */
+export class ProgramBuilder {
+  constructor() {
+    this.instructions = [];
+  }
+
+  /** The index the next instruction will land at. */
+  get here() {
+    return this.instructions.length;
+  }
+
+  /**
+   * Appends an instruction.
+   *
+   * @param {object} instruction the instruction
+   * @returns {number} where it landed, for patching jumps to it
+   */
+  emit(instruction) {
+    this.instructions.push(instruction);
+    return this.instructions.length - 1;
+  }
+
+  /**
+   * Appends a placeholder to be filled in later.
+   *
+   * Forward jumps are unavoidable in a single pass -- a `split` at the start
+   * of an alternation has to point past a branch that has not been compiled
+   * yet -- so they are emitted blank and patched once the target is known.
+   *
+   * @param {string} op the opcode
+   * @returns {number} where it landed
+   */
+  emitPlaceholder(op) {
+    return this.emit({ op, x: -1, y: -1 });
+  }
+
+  /**
+   * Fills in a placeholder's targets.
+   *
+   * @param {number} at the instruction to patch
+   * @param {object} targets the `x` and optionally `y` to set
+   */
+  patch(at, targets) {
+    Object.assign(this.instructions[at], targets);
+  }
+
+  /**
+   * Finishes the program.
+   *
+   * @param {number} slotCount how many capture slots are used
+   * @param {object} meta flags and names to carry along
+   * @returns {Program} the program
+   */
+  build(slotCount, meta) {
+    // Checked rather than assumed: a placeholder left unpatched is a compiler
+    // bug that would otherwise present as a thread jumping to -1 and the
+    // match quietly failing.
+    this.instructions.forEach((instruction, at) => {
+      if (instruction.op === Op.SPLIT && (instruction.x < 0 || instruction.y < 0)) {
+        throw new Error(`compiler bug: split at ${at} was never patched`);
+      }
+      if (instruction.op === Op.JUMP && instruction.x < 0) {
+        throw new Error(`compiler bug: jump at ${at} was never patched`);
+      }
+    });
+
+    return new Program(this.instructions, slotCount, meta);
+  }
+}
