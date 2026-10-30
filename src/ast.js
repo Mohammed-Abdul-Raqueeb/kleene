@@ -232,3 +232,68 @@ export function hasNullableQuantifier(node) {
   return found;
 }
 
+/**
+ * Renders a tree back to something pattern-like, for the CLI's `explain`.
+ *
+ * Not guaranteed to round-trip: `a{1,1}` comes back as `a`, because the
+ * simplifier has already removed it. Useful for seeing what the engine
+ * actually decided to match, which is the point.
+ *
+ * @param {object} node the root
+ * @returns {string} an approximation of the pattern
+ */
+export function render(node) {
+  switch (node.kind) {
+    case Kind.EMPTY:
+      return '';
+
+    case Kind.CHARSET:
+      return node.set.toString();
+
+    case Kind.CONCAT:
+      return node.parts.map((part) => parenthesiseIf(part, Kind.ALTERNATE)).join('');
+
+    case Kind.ALTERNATE:
+      return node.options.map(render).join('|');
+
+    case Kind.REPEAT: {
+      const body = parenthesiseIf(node.body, Kind.ALTERNATE, Kind.CONCAT);
+      const suffix = repeatSuffix(node);
+      return `${body}${suffix}${node.greedy ? '' : '?'}`;
+    }
+
+    case Kind.GROUP: {
+      if (node.number < 0) return `(?:${render(node.body)})`;
+      if (node.name) return `(?<${node.name}>${render(node.body)})`;
+      return `(${render(node.body)})`;
+    }
+
+    case Kind.ANCHOR:
+      return node.which === AnchorKind.START ? '^' : '$';
+
+    case Kind.BOUNDARY:
+      return node.negated ? '\\B' : '\\b';
+
+    default:
+      return '?';
+  }
+}
+
+function repeatSuffix(node) {
+  const { min, max } = node;
+  if (min === 0 && max === UNBOUNDED) return '*';
+  if (min === 1 && max === UNBOUNDED) return '+';
+  if (min === 0 && max === 1) return '?';
+  if (max === UNBOUNDED) return `{${min},}`;
+  if (min === max) return `{${min}}`;
+  return `{${min},${max}}`;
+}
+
+function parenthesiseIf(node, ...kinds) {
+  const text = render(node);
+  // A single character never needs brackets, whatever its kind, which keeps
+  // `a*` from rendering as `(?:a)*`.
+  if (node.kind === Kind.CHARSET || node.kind === Kind.GROUP) return text;
+  if (kinds.includes(node.kind)) return `(?:${text})`;
+  return text;
+}
