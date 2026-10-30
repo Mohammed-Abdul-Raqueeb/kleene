@@ -104,3 +104,28 @@ test('the anchors hold only where they should', () => {
   matches('^$', '', '');
 });
 
+test('under multiline the anchors hold at every line', () => {
+  matches('^b', 'a\nb', null);
+  matches('^b', 'a\nb', 'b', 'm');
+  matches('a$', 'a\nb', 'a', 'm');
+  allMatches('^.', 'a\nb\nc', ['a', 'b', 'c'], 'gm');
+});
+
+test('a word boundary holds between a word and a non-word character', () => {
+  matches('\\bword\\b', 'a word here', 'word');
+  matches('\\bword\\b', 'wordy', null);
+  matches('\\Bord', 'word', 'ord');
+  matches('\\Bord', 'ord', null);
+});
+
+test('a boundary holds at the ends of the subject', () => {
+  matches('\\ba', 'abc', 'a');
+  matches('c\\b', 'abc', 'c');
+});
+
+test('dot matches anything but a newline, unless dotAll', () => {
+  matches('a.b', 'a\nb', null);
+  matches('a.b', 'a\nb', 'a\nb', 's');
+  matches('a.b', 'axb', 'axb');
+});
+
