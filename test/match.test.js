@@ -204,3 +204,24 @@ test('sticky anchors the match to lastIndex', () => {
   assert.equal(regex.exec('ba'), null, 'and refuses to search forward');
 });
 
+test('replace substitutes the first match, or all under g', () => {
+  assert.equal(new Regex('a').replace('aaa', 'X'), 'Xaa');
+  assert.equal(new Regex('a', 'g').replace('aaa', 'X'), 'XXX');
+  assert.equal(new Regex('x').replace('aaa', 'X'), 'aaa');
+});
+
+test('replace expands the dollar forms', () => {
+  assert.equal(new Regex('(a)(b)').replace('ab', '$2$1'), 'ba');
+  assert.equal(new Regex('a').replace('a', '[$&]'), '[a]');
+  assert.equal(new Regex('a').replace('a', '$$'), '$');
+  assert.equal(new Regex('(?<x>a)').replace('a', '[$<x>]'), '[a]');
+});
+
+test('the before and after forms expand to the surrounding text', () => {
+  // Replacing "b" in "abc" with everything-before gives "a" + "a" + "c",
+  // which is easy to misread as just "ac".
+  const before = String.fromCharCode(0x24, 0x60);
+  assert.equal(new Regex('b').replace('abc', before), 'aac');
+  assert.equal(new Regex('b').replace('abc', "$'"), 'acc');
+});
+
