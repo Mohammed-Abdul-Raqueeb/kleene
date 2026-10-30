@@ -22,3 +22,31 @@ export { Kind, render, walk, nullable, hasNullableQuantifier } from './ast.js';
 
 import { Regex } from './regex.js';
 
+/** The library version. */
+export const VERSION = '0.1.0';
+
+/**
+ * Compiles a pattern.
+ *
+ * @param {string} pattern the pattern text
+ * @param {string} [flags] the flag letters
+ * @returns {Regex} the compiled pattern
+ */
+export function compilePattern(pattern, flags) {
+  return new Regex(pattern, flags);
+}
+
+/**
+ * Whether a pattern matches anywhere in a subject.
+ *
+ * Compiles on every call, so a loop should use {@link Regex} directly.
+ *
+ * @param {string} pattern the pattern text
+ * @param {string} subject the text to search
+ * @param {string} [flags] the flag letters
+ * @returns {boolean} true when it matches
+ */
+export function test(pattern, subject, flags) {
+  return new Regex(pattern, flags).test(subject);
+}
+
