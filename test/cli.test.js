@@ -128,3 +128,18 @@ test('match prints the lines that match', async () => {
   assert.equal(result.out, 'ERROR here\n');
 });
 
+test('match -n prefixes the line number', async () => {
+  const result = await cli(['match', 'b', '-n'], { stdin: 'a\nb\nc\nb\n' });
+  assert.equal(result.out, '2:b\n4:b\n');
+});
+
+test('match -v prints the lines that do not match', async () => {
+  const result = await cli(['match', 'b', '-v'], { stdin: 'a\nb\nc\n' });
+  assert.equal(result.out, 'a\nc\n');
+});
+
+test('match -c counts the lines', async () => {
+  const result = await cli(['match', 'b', '-c'], { stdin: 'a\nb\nbb\n' });
+  assert.equal(result.out, '2\n');
+});
+
