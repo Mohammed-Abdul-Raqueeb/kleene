@@ -299,3 +299,22 @@ test('an unknown flag letter exits 3', async () => {
 
 // ---- help and version ----------------------------------------------------
 
+test('help lists every command and the flags', async () => {
+  const result = await cli(['help']);
+  assert.equal(result.code, 0);
+  for (const word of ['match', 'find', 'replace', 'split', 'explain', '--flags', '--group']) {
+    assert.ok(result.out.includes(word), `help should mention ${word}`);
+  }
+});
+
+test('--help works as well as the command', async () => {
+  assert.match((await cli(['--help'])).out, /Usage:/);
+});
+
+test('version prints the name and number', async () => {
+  const command = await cli(['version']);
+  assert.equal(command.code, 0);
+  assert.match(command.out, /^kleene \d+\.\d+\.\d+\n$/);
+
+  assert.match((await cli(['--version'])).out, /^kleene \d/);
+});
