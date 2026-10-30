@@ -255,3 +255,24 @@ test('no command at all is a usage error pointing at help', async () => {
   assert.match(result.err, /kleene help/);
 });
 
+test('an unknown command lists the real ones', async () => {
+  const result = await cli(['frobnicate', 'a']);
+  assert.equal(result.code, 2);
+  assert.match(result.err, /frobnicate/);
+  assert.match(result.err, /match, find, replace, split, explain/);
+});
+
+test('a command with no pattern says which command needs one', async () => {
+  const result = await cli(['find']);
+  assert.equal(result.code, 2);
+  assert.match(result.err, /find needs a pattern/);
+});
+
+test('a malformed pattern exits 3 and draws a caret', async () => {
+  const result = await cli(['find', 'a['], { stdin: 'x' });
+  assert.equal(result.code, 3);
+  assert.match(result.err, /PatternError/);
+  assert.match(result.err, /\^/);
+  assert.equal(result.out, '');
+});
+
