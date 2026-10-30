@@ -172,3 +172,37 @@ Windows and macOS, asserts the manifest declares nothing and every import is
 `node:` or relative, and drives the real binary end to end — including the
 headline claim, so a regression hangs the job rather than passing quietly.
 
+## What is in here
+
+| | |
+| --- | --- |
+| Source | 13 files, ~3,100 lines |
+| Tests | 6 files, 164 cases |
+| Dependencies | 0 |
+
+```
+src/
+  parser.js     pattern to a tree, three precedence levels
+  ast.js        node constructors, and the nullable analysis
+  charset.js    code-point sets as sorted range lists
+  simplify.js   rewrites that preserve which match wins
+  compiler.js   Thompson construction to a flat program
+  program.js    the instruction set, and a disassembler
+  pike.js       the VM: every path at once, one character at a time
+  regex.js      the RegExp-shaped public matcher
+  cli.js        flags and input; returns an exit code
+```
+
+## Limitations
+
+- **No backreferences, no lookaround.** See above. Not oversights.
+- **One documented capture difference** for nullable quantifier bodies,
+  detectable in advance.
+- **No lazy DFA**, so a boolean search still pays for the thread list. That is
+  the obvious next step and would close much of the gap on ordinary patterns.
+- **No Unicode property escapes** — `\p{Letter}` needs megabytes of tables.
+- **`{n,m}` is copied out**, so the upper bound is capped at 10,000.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
