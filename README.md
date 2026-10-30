@@ -48,3 +48,74 @@ echo 'hello world' | kleene replace '(\w+) (\w+)' '$2 $1'
 kleene explain '(a|b)+c'                 # the parsed tree and the program
 ```
 
+## Why it is fast on the bad cases
+
+A backtracking engine tries one path and winds back when it fails. This one
+runs **every** path at once, one input character at a time — a Pike VM over a
+Thompson NFA. A thread is a program counter plus capture slots, and:
+
+> The thread list can never hold two threads at the same program counter,
+> because the second would explore exactly what the first already is.
+
+So the list is capped at the program's length, and matching is
+O(subject × program) for every pattern. There is no input that escapes it.
+
+## What that costs
+
+Stated plainly, because it is the trade and not a footnote:
+
+**No backreferences.** `(a+)\1` makes a thread's future depend on text it
+already consumed, so two threads at the same counter stop being
+interchangeable. Matching them is NP-hard in general.
+
+**No lookaround.** `(?=a)` is an assertion about a different parse of the same
+input, which one pass cannot evaluate.
+
+Both are refused **by name** at parse time, with a message saying why:
+
+```
+UnsupportedError: lookahead is not supported: it cannot be expressed as a
+finite automaton, which is what this engine builds
+  /(?=a)/
+   ^
+```
+
+**About 50× slower on patterns that backtrack fine.** `RegExp` is years of
+C++ with a JIT; this is three thousand lines of JavaScript. `npm run bench`
+prints both numbers side by side.
+
+If your patterns are fixed and trusted, use `RegExp` — it is faster and far
+more battle-worn. Use this when a pattern or a subject comes from somewhere
+you do not control, and a hang is worse than being slower.
+
+## Agreement with RegExp, measured
+
+For any pattern where **no quantifier's body can match the empty string**,
+this engine agrees with `RegExp` exactly. Measured by generating thousands of
+patterns and comparing both engines:
+
+```
+5,035 generated patterns compared, 0 disagreements
+```
+
+Outside that range there is one difference. ECMAScript rejects a quantifier
+iteration that consumes nothing when the lower bound is zero, so:
+
+```js
+/(b{0,2})?/.exec(' a ')[1]                // undefined  (RegExp)
+new Regex('(b{0,2})?').match(' a ')[1]    // ''         (kleene)
+```
+
+Implementing that rule means a thread carrying the position each iteration
+began at — and a thread's identity would then include that position, which
+breaks the bound the whole guarantee rests on. So it is a documented property
+rather than a hidden quirk, and it is detectable before you rely on it:
+
+```js
+import { hasNullableQuantifier, Regex } from '@raqueeb/kleene';
+hasNullableQuantifier(new Regex('(b{0,2})?').ast);   // true
+```
+
+`kleene explain` prints the same answer, and the differential test uses the
+same function to draw its boundary.
+
