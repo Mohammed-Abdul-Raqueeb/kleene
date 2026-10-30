@@ -149,3 +149,89 @@ function slotsIn(node) {
   return slots.sort((a, b) => a - b);
 }
 
+function emitRepeat(builder, node, pattern) {
+  const { min, max, greedy, body } = node;
+  const captured = slotsIn(body);
+
+  /** Emits the body, clearing its captures first when it has any. */
+  const emitIteration = () => {
+    if (captured.length > 0) builder.emit({ op: Op.CLEAR, slots: captured });
+    emit(builder, body, pattern);
+  };
+
+  // `{min,}` and `{min,max}` are compiled by laying out `min` mandatory
+  // copies and then the optional part. Copying the body is the cost of not
+  // having a counter in the VM, and a counter would mean a thread's identity
+  // included its counts -- which would break the "one thread per program
+  // position" bound that makes the VM linear.
+  for (let i = 0; i < min; i++) {
+    emitIteration();
+  }
+
+  if (max === UNBOUNDED) {
+    // `a{2,}` is `aa` then `a*`: the mandatory copies are already emitted
+    // above, so what remains is a star either way.
+    emitStar(builder, body, greedy, pattern, captured);
+    return;
+  }
+
+  // A bounded repeat becomes nested optionals: `a{0,3}` is `(a(a(a)?)?)?`.
+  // Laid out as a chain of splits that all jump to the same end.
+  const optional = max - min;
+  const splits = [];
+
+  for (let i = 0; i < optional; i++) {
+    const split = builder.emitPlaceholder(Op.SPLIT);
+    splits.push(split);
+    builder.patch(split, greedy ? { x: builder.here } : { y: builder.here });
+    emitIteration();
+  }
+
+  const end = builder.here;
+  for (const split of splits) {
+    builder.patch(split, greedy ? { y: end } : { x: end });
+  }
+}
+
+/**
+ * `a*` becomes:
+ *
+ *   L1: split L2, L3      (greedy: body first; lazy: exit first)
+ *   L2: <a>
+ *     jump L1
+ *   L3:
+ */
+function emitStar(builder, body, greedy, pattern, captured = []) {
+  const start = builder.here;
+  const split = builder.emitPlaceholder(Op.SPLIT);
+
+  const bodyAt = builder.here;
+  // Inside the loop, so it runs once per iteration rather than once in total.
+  if (captured.length > 0) builder.emit({ op: Op.CLEAR, slots: captured });
+  emit(builder, body, pattern);
+
+  // A body that consumes nothing would make this loop for ever: `(?:)*` or
+  // `(a?)*`. Guarded by checking whether any instruction between the split
+  // and here can consume, rather than by a runtime check, so the cost is
+  // paid once at compile time.
+  if (!canConsume(builder, bodyAt, builder.here)) {
+    // Emitted as a plain optional instead of a loop. One iteration of
+    // something that consumes nothing is indistinguishable from any other
+    // number, so the loop is pointless rather than wrong.
+    builder.patch(split, greedy ? { x: bodyAt, y: builder.here } : { x: builder.here, y: bodyAt });
+    return;
+  }
+
+  builder.emit({ op: Op.JUMP, x: start });
+  const end = builder.here;
+
+  builder.patch(split, greedy ? { x: bodyAt, y: end } : { x: end, y: bodyAt });
+}
+
+/** Whether any instruction in a range consumes input. */
+function canConsume(builder, from, to) {
+  for (let at = from; at < to; at++) {
+    if (builder.instructions[at].op === Op.CHAR) return true;
+  }
+  return false;
+}
