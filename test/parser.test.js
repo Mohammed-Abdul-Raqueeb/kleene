@@ -306,3 +306,21 @@ test('an error carries the index it happened at', () => {
   assert.equal(error.pattern, 'ab[c');
 });
 
+test('a formatted error draws a caret under the problem', () => {
+  const error = throwsWith(() => tree('ab[c'), PatternError);
+  const lines = error.format().split('\n');
+  assert.equal(lines.length, 3);
+  assert.match(lines[1], /\/ab\[c\//);
+  assert.match(lines[2], /^\s+\^$/);
+});
+
+test('a pattern that is not a string is rejected', () => {
+  throwsWith(() => parse(null), PatternError);
+  throwsWith(() => parse(42), PatternError);
+});
+
+/** The repeat node from a one-atom pattern. */
+function pick(node) {
+  assert.equal(node.kind, Kind.REPEAT, 'expected a repeat at the root');
+  return { min: node.min, max: node.max, greedy: node.greedy };
+}
