@@ -154,3 +154,19 @@ test('a close bracket first in a class is literal', () => {
   assert.ok(tree('[^]]').set.has(0x61));
 });
 
+test('a dash at either end of a class is literal', () => {
+  assert.ok(tree('[-a]').set.has(0x2d));
+  assert.ok(tree('[a-]').set.has(0x2d));
+});
+
+test('a named class inside a class joins it', () => {
+  const set = tree('[\\d-]').set;
+  assert.ok(set.has(0x35), 'digits');
+  assert.ok(set.has(0x2d), 'the literal dash');
+});
+
+test('a descending class range is rejected', () => {
+  const error = throwsWith(() => tree('[z-a]'), PatternError);
+  assert.match(error.message, /runs backwards/);
+});
+
