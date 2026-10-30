@@ -32,3 +32,24 @@ test('alternation prefers the earlier branch', () => {
   matches('a|ab', 'ab', 'a');
 });
 
+test('star, plus and optional match the obvious things', () => {
+  matches('a*', 'aaa', 'aaa');
+  matches('a*', 'bbb', '');
+  matches('a+', 'baaa', 'aaa');
+  matches('a+', 'bbb', null);
+  matches('ab?c', 'ac', 'ac');
+  matches('ab?c', 'abc', 'abc');
+});
+
+test('greedy quantifiers take as much as they can', () => {
+  matches('a.*b', 'axbxb', 'axbxb');
+  matches('<.+>', '<a><b>', '<a><b>');
+});
+
+test('lazy quantifiers take as little as they can', () => {
+  // The difference the trailing `?` makes, and the reason it exists.
+  matches('a.*?b', 'axbxb', 'axb');
+  matches('<.+?>', '<a><b>', '<a>');
+  matches('a??', 'a', '');
+});
+
