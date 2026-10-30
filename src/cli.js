@@ -205,3 +205,30 @@ function findAll(regex, text, options, io) {
   return count > 0 ? 0 : 1;
 }
 
+function replaceAll(regex, text, options, io) {
+  // Forced global: `kleene replace` over a file is almost never meant to
+  // change only the first occurrence, and `--flags g` to get the obvious
+  // behaviour would be a trap.
+  const global = new Regex(regex.source, `${regex.flagString.replace('g', '')}g`);
+  const result = global.replace(text, options.replacement);
+  io.out.write(options.noNewline || result.endsWith('\n') ? result : `${result}\n`);
+  return 0;
+}
+
+function splitLines(regex, text, options, io) {
+  for (const line of splitKeepingNothing(text)) {
+    for (const piece of regex.split(line)) {
+      io.out.write(`${piece}\n`);
+    }
+  }
+  return 0;
+}
+
+/** Every match, whether or not the pattern carries `g`. */
+function allMatches(regex, text) {
+  const global = regex.flags.global
+    ? regex
+    : new Regex(regex.source, `${regex.flagString}g`);
+  return [...global.matchAll(text)];
+}
+
