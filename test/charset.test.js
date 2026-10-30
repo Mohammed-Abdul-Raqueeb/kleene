@@ -124,3 +124,29 @@ test('foldCase adds the other case of each letter', () => {
   assert.ok(!set.has(0x62));
 });
 
+test('foldCase leaves a non-letter alone', () => {
+  const set = CharSet.of(0x31).foldCase();
+  assert.equal(set.size, 1);
+});
+
+test('foldCase is bounded, so a huge set does not take minutes', () => {
+  // A negated class spans the whole Unicode range, and walking it one code
+  // point at a time would be a million iterations per range.
+  const started = performance.now();
+  const set = CharSet.any().foldCase();
+  const elapsed = performance.now() - started;
+
+  assert.ok(elapsed < 500, `folding everything took ${elapsed.toFixed(0)}ms`);
+  assert.ok(set.has(0x61), 'and still holds what it held');
+});
+
+test('equals compares contents, not identity', () => {
+  assert.ok(CharSet.of(0x61).equals(CharSet.of(0x61)));
+  assert.ok(!CharSet.of(0x61).equals(CharSet.of(0x62)));
+  // Two sets built differently that hold the same thing are equal, which the
+  // normalisation is what guarantees.
+  assert.ok(
+    CharSet.fromRanges([[0x61, 0x61], [0x62, 0x62]]).equals(CharSet.range(0x61, 0x62)),
+  );
+});
+
