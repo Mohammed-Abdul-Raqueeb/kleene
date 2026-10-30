@@ -60,3 +60,53 @@ accepting it would mean compiling something the author did not write. Write
 Braces that do not hold a bound are literal, as everywhere else: `a{`,
 `a{x}` and `a{,2}` all match themselves.
 
+## Groups
+
+| Form | Meaning |
+| --- | --- |
+| `(a)` | capturing |
+| `(?:a)` | grouping only, no capture |
+| `(?<name>a)` | capturing, and reachable as `match.groups.name` |
+
+A group that did not participate reads as `undefined`, not as an empty
+string. That distinction is what `(a)|(b)` depends on.
+
+A quantified group clears its captures each time round, which is
+ECMAScript's rule:
+
+```
+/(?:(a)|(b))+/ against "ab"  →  ["ab", undefined, "b"]
+```
+
+Group 1 matched on the first pass and is unset again on the second.
+
+## Anchors and boundaries
+
+| Form | Holds |
+| --- | --- |
+| `^` | at the start of the subject, or after a newline with `m` |
+| `$` | at the end, or before a newline with `m` |
+| `\b` | between a word character and a non-word one |
+| `\B` | anywhere `\b` does not |
+
+An anchor cannot carry a quantifier: `^*` is an error rather than being
+quietly ignored.
+
+`\b` inside a character class is a **backspace**, not a boundary. A genuine
+quirk of the syntax, shared by every engine.
+
+## Alternation
+
+`a|b|c` tries the branches in order and the first to match wins —
+leftmost-first, as Perl and JavaScript do:
+
+```
+/a|ab/ against "ab"  →  "a"
+/ab|a/ against "ab"  →  "ab"
+```
+
+A POSIX engine would prefer the longest. This one does not, so that patterns
+behave the way they do in the language they were written for.
+
+An empty alternative is allowed: `a|` matches `"a"` or nothing.
+
