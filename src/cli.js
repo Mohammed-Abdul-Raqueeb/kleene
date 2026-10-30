@@ -232,3 +232,97 @@ function allMatches(regex, text) {
   return [...global.matchAll(text)];
 }
 
+/**
+ * Splits text into lines, dropping a single trailing newline.
+ *
+ * Without the drop, a file ending in a newline yields a final empty line
+ * that matches `^$` and inflates every count by one.
+ */
+function splitKeepingNothing(text) {
+  const body = text.endsWith('\n') ? text.slice(0, -1) : text;
+  return body === '' ? [] : body.split(/\r?\n/);
+}
+
+/**
+ * Parses the command line.
+ *
+ * @param {string[]} argv the arguments
+ * @returns {object} the parsed options
+ * @throws {Error} on an unknown flag or a missing value
+ */
+export function parseArgs(argv) {
+  const options = {
+    command: '',
+    pattern: null,
+    replacement: null,
+    files: [],
+    flags: '',
+    invert: false,
+    lineNumber: false,
+    count: false,
+    only: false,
+    group: null,
+    noNewline: false,
+    help: false,
+    version: false,
+  };
+
+  const positional = [];
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+
+    const needsValue = (name) => {
+      if (i + 1 >= argv.length) throw new Error(`${name} needs a value`);
+      i++;
+      return argv[i];
+    };
+
+    switch (arg) {
+      case '-h': case '--help': options.help = true; break;
+      case '-V': case '--version': options.version = true; break;
+      case '-v': case '--invert': case '--invert-match': options.invert = true; break;
+      case '-n': case '--line-number': options.lineNumber = true; break;
+      case '-c': case '--count': options.count = true; break;
+      case '-o': case '--only': case '--only-matching': options.only = true; break;
+      case '--no-newline': options.noNewline = true; break;
+      case '-i': case '--ignore-case': options.flags += 'i'; break;
+      case '-f': case '--flags': options.flags += needsValue('--flags'); break;
+      case '--group': options.group = needsValue('--group'); break;
+
+      default: {
+        if (arg.startsWith('--') && arg.includes('=')) {
+          const split = arg.indexOf('=');
+          argv.splice(i, 1, arg.slice(0, split), arg.slice(split + 1));
+          i--;
+          break;
+        }
+        // A pattern can begin with a dash, so only arguments before the
+        // pattern are treated as flags. After it, a leading dash is data.
+        if (arg.startsWith('-') && arg.length > 1 && positional.length < 2) {
+          throw new Error(`unknown option "${arg}"`);
+        }
+        positional.push(arg);
+      }
+    }
+  }
+
+  if (positional.length > 0) [options.command] = positional;
+  if (positional.length > 1) [, options.pattern] = positional;
+
+  // `replace` takes its replacement as the third positional; every other
+  // command treats the rest as filenames.
+  if (options.command === 'replace') {
+    if (positional.length > 2) [, , options.replacement] = positional;
+    options.files = positional.slice(3);
+  } else {
+    options.files = positional.slice(2);
+  }
+
+  if (options.command === 'version') options.version = true;
+  if (options.command === 'help') options.help = true;
+
+  return options;
+}
+
+export { USAGE };
