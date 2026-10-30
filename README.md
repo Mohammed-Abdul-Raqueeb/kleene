@@ -119,3 +119,56 @@ hasNullableQuantifier(new Regex('(b{0,2})?').ast);   // true
 `kleene explain` prints the same answer, and the differential test uses the
 same function to draw its boundary.
 
+## Syntax
+
+Everything JavaScript has except the two constructs above:
+literals, `.`, classes with ranges and negation, `\d \w \s \D \W \S`, `*` `+`
+`?` `{n,m}` and their lazy forms, groups including `(?:)` and `(?<name>)`,
+alternation, `^ $ \b \B`, and the `g i m s u y` flags.
+
+Full reference: [docs/syntax.md](docs/syntax.md).
+
+One deliberate refusal worth knowing: `a**` is an error rather than a nested
+repetition. This engine would survive it, but accepting it would mean
+compiling something the author did not write.
+
+## See what it compiled
+
+```
+$ kleene explain '(a|b)+c'
+pattern     /(a|b)+c/
+simplified  /([a-b])+c/
+groups      1
+program     12 instructions
+RegExp parity  guaranteed: no quantifier body can match empty
+
+ 0  save    0   (group 0 start)
+ 1  save    2   (group 1 start)
+ 2  char    [a-b]
+ 3  save    3   (group 1 end)
+ 4  split   5, 9
+ 5  save    2   (group 1 start)
+ 6  char    [a-b]
+ 7  save    3   (group 1 end)
+ 8  jump    4
+ 9  char    c
+10  save    1   (group 0 end)
+11  match
+```
+
+The simplifier merged `a|b` into one character class. Being able to read the
+program is how most of the compiler's bugs were found.
+
+## Build and test
+
+```bash
+npm test          # 164 tests, node:test, no runner to install
+npm run lint      # the house rules, including the dependency check
+npm run bench     # kleene against RegExp, both directions
+```
+
+CI runs the suite on Node 20, 22 and 24 on Linux plus one version each on
+Windows and macOS, asserts the manifest declares nothing and every import is
+`node:` or relative, and drives the real binary end to end — including the
+headline claim, so a regression hangs the job rather than passing quietly.
+
