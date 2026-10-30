@@ -252,3 +252,18 @@ test('a replacement function receives the groups and the index', () => {
   assert.deepEqual(seen, [['ab', 'a', 'b', 0, 'abab'], ['ab', 'a', 'b', 2, 'abab']]);
 });
 
+test('split breaks on every match', () => {
+  assert.deepEqual(new Regex(',', 'g').split('a,b,c'), ['a', 'b', 'c']);
+  assert.deepEqual(new Regex(',', 'g').split('abc'), ['abc']);
+  assert.deepEqual(new Regex('\\s*,\\s*', 'g').split('a , b'), ['a', 'b']);
+});
+
+test('split interleaves capture groups, as String.split does', () => {
+  assert.deepEqual(new Regex('(,)', 'g').split('a,b'), ['a', ',', 'b']);
+});
+
+test('split honours a limit', () => {
+  assert.deepEqual(new Regex(',', 'g').split('a,b,c', 2), ['a', 'b']);
+  assert.deepEqual(new Regex(',', 'g').split('a,b,c', 0), []);
+});
+
