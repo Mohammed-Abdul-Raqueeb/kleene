@@ -276,3 +276,26 @@ test('a malformed pattern exits 3 and draws a caret', async () => {
   assert.equal(result.out, '');
 });
 
+test('an unsupported construct exits 4, distinctly from malformed', async () => {
+  // The fixes differ: one is a typo, the other means reaching for another
+  // tool, so a script should be able to tell them apart.
+  const result = await cli(['find', '(?=a)'], { stdin: 'x' });
+  assert.equal(result.code, 4);
+  assert.match(result.err, /UnsupportedError/);
+  assert.match(result.err, /finite automaton/);
+});
+
+test('a backreference also exits 4', async () => {
+  const result = await cli(['find', '(a)\\1'], { stdin: 'aa' });
+  assert.equal(result.code, 4);
+  assert.match(result.err, /NP-hard/);
+});
+
+test('an unknown flag letter exits 3', async () => {
+  const result = await cli(['find', 'a', '-f', 'Z'], { stdin: 'a' });
+  assert.equal(result.code, 3);
+  assert.match(result.err, /not a flag/);
+});
+
+// ---- help and version ----------------------------------------------------
+
