@@ -129,3 +129,24 @@ test('dot matches anything but a newline, unless dotAll', () => {
   matches('a.b', 'axb', 'axb');
 });
 
+test('ignoreCase matches either case', () => {
+  // The matched text comes from the subject, so it keeps the subject's case.
+  matches('abc', 'ABC', 'ABC', 'i');
+  matches('[a-z]+', 'ABC', 'ABC', 'i');
+  matches('[^a]', 'A', null, 'i');
+  matches('\\w+', 'AbC', 'AbC', 'i');
+});
+
+test('a character class matches one of its members', () => {
+  matches('[abc]+', 'xbcay', 'bca');
+  matches('[^a]+', 'aXYa', 'XY');
+  matches('[a-c0-9]+', 'zb1c!', 'b1c');
+});
+
+test('the named classes match what they say', () => {
+  matches('\\d+', 'ab123cd', '123');
+  matches('\\w+', ' a_1 ', 'a_1');
+  matches('\\s+', 'a \t b', ' \t ');
+  matches('\\D+', '12ab34', 'ab');
+});
+
