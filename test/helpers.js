@@ -83,3 +83,46 @@ export function agreesWithRegExp(pattern, subject, flags = '') {
   );
 }
 
+/**
+ * Asserts the text of the first match, or null.
+ *
+ * @param {string} pattern the pattern
+ * @param {string} subject the text to search
+ * @param {string|null} expected the matched text
+ * @param {string} [flags] the flag letters
+ */
+export function matches(pattern, subject, expected, flags = '') {
+  const found = new Regex(pattern, flags).match(subject);
+  assert.equal(
+    found === null ? null : found[0],
+    expected,
+    `/${pattern}/${flags} against ${JSON.stringify(subject)}`,
+  );
+}
+
+/**
+ * Asserts the full group list of the first match.
+ *
+ * @param {string} pattern the pattern
+ * @param {string} subject the text to search
+ * @param {Array<string|undefined>} expected every group, group 0 first
+ * @param {string} [flags] the flag letters
+ */
+export function captures(pattern, subject, expected, flags = '') {
+  const found = new Regex(pattern, flags).match(subject);
+  assert.ok(found !== null, `/${pattern}/${flags} should match ${JSON.stringify(subject)}`);
+  assert.deepEqual([...found], expected, `/${pattern}/${flags}`);
+}
+
+/**
+ * Asserts every match of a pattern, as text.
+ *
+ * @param {string} pattern the pattern
+ * @param {string} subject the text to search
+ * @param {string[]} expected the matched texts, in order
+ * @param {string} [flags] the flag letters
+ */
+export function allMatches(pattern, subject, expected, flags = 'g') {
+  const found = [...new Regex(pattern, flags).matchAll(subject)].map((each) => each[0]);
+  assert.deepEqual(found, expected, `/${pattern}/${flags} against ${JSON.stringify(subject)}`);
+}
