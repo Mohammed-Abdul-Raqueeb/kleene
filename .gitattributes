@@ -1,0 +1,10 @@
+# Line endings are normalised to LF in the repository.
+#
+# The work happens on Windows, where autocrlf would check files out with CRLF.
+# One rule for everything avoids having to remember which files mind.
+* text=auto eol=lf
+
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
