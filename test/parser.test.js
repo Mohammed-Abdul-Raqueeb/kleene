@@ -132,3 +132,25 @@ test('an unrecognised group marker is rejected with the alternatives', () => {
   assert.match(error.message, /\(\?<name>/);
 });
 
+test('unbalanced parentheses are reported from the right end', () => {
+  const open = throwsWith(() => tree('(a'), PatternError);
+  assert.match(open.message, /unterminated group/);
+
+  const close = throwsWith(() => tree('a)'), PatternError);
+  assert.match(close.message, /unmatched/);
+});
+
+test('character classes parse ranges, lists and negation', () => {
+  assert.ok(tree('[abc]').set.has(0x62));
+  assert.ok(tree('[a-c]').set.has(0x62));
+  assert.ok(!tree('[a-c]').set.has(0x64));
+  assert.ok(!tree('[^a]').set.has(0x61));
+  assert.ok(tree('[^a]').set.has(0x62));
+});
+
+test('a close bracket first in a class is literal', () => {
+  // What POSIX does, and what `[]]` relies on.
+  assert.ok(tree('[]]').set.has(0x5d));
+  assert.ok(tree('[^]]').set.has(0x61));
+});
+
