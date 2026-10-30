@@ -170,3 +170,39 @@ test('a descending class range is rejected', () => {
   assert.match(error.message, /runs backwards/);
 });
 
+test('an unterminated class is rejected', () => {
+  const error = throwsWith(() => tree('[abc'), PatternError);
+  assert.match(error.message, /unterminated character class/);
+});
+
+test('a class that matches nothing is rejected', () => {
+  // `[^\s\S]` can never match, and a pattern that silently never matches is
+  // worse than one that will not compile.
+  const error = throwsWith(() => tree('[^\\s\\S]'), PatternError);
+  assert.match(error.message, /matches nothing/);
+});
+
+test('the named classes resolve to the right sets', () => {
+  assert.ok(tree('\\d').set.has(0x35));
+  assert.ok(!tree('\\d').set.has(0x61));
+  assert.ok(tree('\\w').set.has(0x5f));
+  assert.ok(tree('\\s').set.has(0x20));
+  assert.ok(tree('\\D').set.has(0x61));
+  assert.ok(!tree('\\D').set.has(0x35));
+  assert.ok(tree('\\W').set.has(0x20));
+  assert.ok(tree('\\S').set.has(0x61));
+});
+
+test('escapes for control characters resolve', () => {
+  assert.equal(tree('\\n').set.singleton, 0x0a);
+  assert.equal(tree('\\t').set.singleton, 0x09);
+  assert.equal(tree('\\r').set.singleton, 0x0d);
+  assert.equal(tree('\\f').set.singleton, 0x0c);
+  assert.equal(tree('\\v').set.singleton, 0x0b);
+  assert.equal(tree('\\0').set.singleton, 0x00);
+  assert.equal(tree('\\x41').set.singleton, 0x41);
+  assert.equal(tree('\\u00e9').set.singleton, 0xe9);
+  assert.equal(tree('\\u{1f600}').set.singleton, 0x1f600);
+  assert.equal(tree('\\cA').set.singleton, 1);
+});
+
