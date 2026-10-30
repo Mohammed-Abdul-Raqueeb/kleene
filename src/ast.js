@@ -131,3 +131,104 @@ export function walk(node, visit) {
   }
 }
 
+/**
+ * How many capture groups a tree holds.
+ *
+ * @param {object} node the root
+ * @returns {number} the highest capture number, which is the group count
+ */
+export function countGroups(node) {
+  let highest = 0;
+  walk(node, (current) => {
+    if (current.kind === Kind.GROUP && current.number > highest) {
+      highest = current.number;
+    }
+  });
+  return highest;
+}
+
+/**
+ * The named groups in a tree, as a map from name to number.
+ *
+ * @param {object} node the root
+ * @returns {Map<string, number>} the names
+ */
+export function groupNames(node) {
+  const names = new Map();
+  walk(node, (current) => {
+    if (current.kind === Kind.GROUP && current.name) {
+      names.set(current.name, current.number);
+    }
+  });
+  return names;
+}
+
+/**
+ * Whether a node can match the empty string.
+ *
+ * Exported because it marks the one place this engine's behaviour departs
+ * from ECMAScript, and a caller deserves a way to ask rather than guess.
+ *
+ * ECMAScript's repeat rule rejects an iteration that consumes nothing when
+ * the lower bound is zero, which is how `/(b?)?/ ` leaves its group
+ * `undefined` rather than matching empty. Implementing that would mean a
+ * thread carrying the input position each iteration began at, and a thread's
+ * identity would then include that position -- which breaks the one-thread-
+ * per-instruction bound the linear-time guarantee rests on.
+ *
+ * So the trade is explicit: for any pattern where no quantifier's body is
+ * nullable, this engine agrees with `RegExp` exactly. Where one is, the
+ * captures of zero-width iterations may differ. `nullable` is how the test
+ * suite draws that line, and how a caller can check a pattern before
+ * relying on it.
+ *
+ * @param {object} node the root
+ * @returns {boolean} true when the node can match no characters at all
+ */
+export function nullable(node) {
+  switch (node.kind) {
+    case Kind.EMPTY:
+    // An anchor and a boundary consume nothing, so both match empty where
+    // they hold.
+    case Kind.ANCHOR:
+    case Kind.BOUNDARY:
+      return true;
+
+    case Kind.CHARSET:
+      return false;
+
+    case Kind.CONCAT:
+      return node.parts.every(nullable);
+
+    case Kind.ALTERNATE:
+      return node.options.some(nullable);
+
+    case Kind.REPEAT:
+      return node.min === 0 || nullable(node.body);
+
+    case Kind.GROUP:
+      return nullable(node.body);
+
+    default:
+      return true;
+  }
+}
+
+/**
+ * Whether any quantifier in a tree has a body that can match the empty
+ * string.
+ *
+ * True means the pattern is outside the range where this engine and
+ * `RegExp` are guaranteed to agree. See {@link nullable}.
+ *
+ * @param {object} node the root
+ * @returns {boolean} true when some quantifier's body is nullable
+ */
+export function hasNullableQuantifier(node) {
+  let found = false;
+  walk(node, (current) => {
+    if (current.kind === Kind.REPEAT && nullable(current.body)) found = true;
+  });
+  return found;
+}
+
