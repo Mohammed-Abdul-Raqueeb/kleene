@@ -252,3 +252,30 @@ test('dot excludes newlines unless dotAll is set', () => {
   assert.ok(tree('.').set.has(0x61));
 });
 
+test('ignoreCase widens a literal to both cases at parse time', () => {
+  // Done by widening the set rather than lowercasing the subject, which
+  // would shift the offsets a match reports.
+  const set = tree('a', { ignoreCase: true }).set;
+  assert.ok(set.has(0x61));
+  assert.ok(set.has(0x41));
+});
+
+test('ignoreCase folds a class before negating it', () => {
+  // `[^a]` with `i` must exclude both cases; folding after negating would
+  // add the upper case back in.
+  const set = tree('[^a]', { ignoreCase: true }).set;
+  assert.ok(!set.has(0x61));
+  assert.ok(!set.has(0x41));
+  assert.ok(set.has(0x62));
+});
+
+test('backreferences are refused as unsupported, not as malformed', () => {
+  // The distinction matters: one means fix your typo, the other means use a
+  // different tool.
+  const error = throwsWith(() => tree('(a)\\1'), UnsupportedError);
+  assert.match(error.message, /NP-hard/);
+  assert.ok(error instanceof PatternError, 'and is still a PatternError');
+
+  throwsWith(() => tree('(?<x>a)\\k<x>'), UnsupportedError);
+});
+
