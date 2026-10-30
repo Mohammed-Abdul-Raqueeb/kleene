@@ -175,3 +175,32 @@ test('matchAll yields every match without touching lastIndex', () => {
   assert.equal(regex.lastIndex, 0, 'matchAll leaves lastIndex alone');
 });
 
+test('an empty match still advances, rather than looping', () => {
+  // `/a*/g` over "bb" must terminate. Both engines advance by one.
+  allMatches('a*', 'bb', ['', '', '']);
+  allMatches('', 'ab', ['', '', '']);
+});
+
+test('exec advances lastIndex under g', () => {
+  const regex = new Regex('a', 'g');
+  assert.equal(regex.exec('aba').index, 0);
+  assert.equal(regex.exec('aba').index, 2);
+  assert.equal(regex.exec('aba'), null);
+  assert.equal(regex.lastIndex, 0, 'and resets when it runs out');
+});
+
+test('exec without g always starts over', () => {
+  const regex = new Regex('a');
+  assert.equal(regex.exec('aba').index, 0);
+  assert.equal(regex.exec('aba').index, 0);
+});
+
+test('sticky anchors the match to lastIndex', () => {
+  const regex = new Regex('a', 'y');
+  regex.lastIndex = 1;
+  assert.equal(regex.exec('ba').index, 1);
+
+  regex.lastIndex = 0;
+  assert.equal(regex.exec('ba'), null, 'and refuses to search forward');
+});
+
