@@ -88,3 +88,21 @@ test('the boolean switches parse', () => {
 
 // ---- find ----------------------------------------------------------------
 
+test('find prints every match, one per line', async () => {
+  const result = await cli(['find', '[0-9]+'], { stdin: 'a1b22c333' });
+  assert.equal(result.code, 0);
+  assert.equal(result.out, '1\n22\n333\n');
+});
+
+test('find exits 1 when nothing matched', async () => {
+  // As grep does, so a shell can branch on it.
+  const result = await cli(['find', 'z'], { stdin: 'abc' });
+  assert.equal(result.code, 1);
+  assert.equal(result.out, '');
+});
+
+test('find --count prints the number, not the matches', async () => {
+  const result = await cli(['find', '[0-9]', '-c'], { stdin: 'a1b2' });
+  assert.equal(result.out, '2\n');
+});
+
