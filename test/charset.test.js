@@ -82,3 +82,28 @@ test('union merges two sets', () => {
   assert.ok(!set.has(0x62));
 });
 
+test('intersect keeps only what both hold', () => {
+  const set = CharSet.range(0x61, 0x65).intersect(CharSet.range(0x63, 0x67));
+  assert.deepEqual(set.ranges, [[0x63, 0x65]]);
+});
+
+test('intersecting disjoint sets gives nothing', () => {
+  assert.ok(CharSet.of(0x61).intersect(CharSet.of(0x62)).isEmpty);
+});
+
+test('subtract removes one set from another', () => {
+  const set = CharSet.range(0x61, 0x65).subtract(CharSet.of(0x63));
+  assert.ok(set.has(0x62));
+  assert.ok(!set.has(0x63));
+  assert.ok(set.has(0x64));
+});
+
+test('negate holds everything the set does not', () => {
+  const set = CharSet.of(0x61).negate();
+  assert.ok(!set.has(0x61));
+  assert.ok(set.has(0x62));
+  assert.ok(set.has(0));
+  assert.ok(set.has(MAX_CODE_POINT));
+  assert.equal(set.size, MAX_CODE_POINT);
+});
+
