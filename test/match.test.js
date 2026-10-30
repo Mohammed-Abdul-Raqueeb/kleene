@@ -225,3 +225,30 @@ test('the before and after forms expand to the surrounding text', () => {
   assert.equal(new Regex('b').replace('abc', "$'"), 'acc');
 });
 
+test('a dollar with no group after it stays literal', () => {
+  assert.equal(new Regex('a').replace('a', '$9'), '$9');
+  assert.equal(new Regex('a').replace('a', '$'), '$');
+  assert.equal(new Regex('a').replace('a', 'x$'), 'x$');
+});
+
+test('a two-digit group reference is preferred when the group exists', () => {
+  const pattern = '(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)';
+  assert.equal(new Regex(pattern).replace('abcdefghijkl', '$12'), 'l');
+  // With only one group, `$12` is group 1 followed by a literal 2.
+  assert.equal(new Regex('(a)').replace('a', '$12'), 'a2');
+});
+
+test('replace accepts a function', () => {
+  const result = new Regex('\\d+', 'g').replace('a1b22', (text) => `<${text.length}>`);
+  assert.equal(result, 'a<1>b<2>');
+});
+
+test('a replacement function receives the groups and the index', () => {
+  const seen = [];
+  new Regex('(a)(b)', 'g').replace('abab', (...args) => {
+    seen.push(args.slice(0, 5));
+    return '';
+  });
+  assert.deepEqual(seen, [['ab', 'a', 'b', 0, 'abab'], ['ab', 'a', 'b', 2, 'abab']]);
+});
+
