@@ -197,3 +197,47 @@ function addThread(list, instructions, at, slots, chars, multiline, offsets, pc 
   }
 }
 
+function isWord(char) {
+  return char !== undefined && CLASSES.w.has(char.codePointAt(0));
+}
+
+function isLineTerminator(char) {
+  if (char === undefined) return false;
+  const code = char.codePointAt(0);
+  return code === 0x0a || code === 0x0d || code === 0x2028 || code === 0x2029;
+}
+
+/**
+ * A list of threads, with an O(1) "is this program counter already here?"
+ * check.
+ *
+ * `seen` holds a generation number per program counter rather than a boolean,
+ * so clearing the list is incrementing one integer instead of refilling an
+ * array. That matters: the list is cleared once per input character.
+ */
+class ThreadList {
+  constructor(programLength) {
+    this.threads = [];
+    this.size = 0;
+    this.seen = new Int32Array(programLength);
+    this.generation = 1;
+  }
+
+  push(pc, slots) {
+    if (this.size < this.threads.length) {
+      // Reusing the object rather than allocating one. The list is rebuilt
+      // per character, so this is the difference between one allocation per
+      // thread per character and none.
+      this.threads[this.size].pc = pc;
+      this.threads[this.size].slots = slots;
+    } else {
+      this.threads.push({ pc, slots });
+    }
+    this.size++;
+  }
+
+  clear() {
+    this.size = 0;
+    this.generation++;
+  }
+}
