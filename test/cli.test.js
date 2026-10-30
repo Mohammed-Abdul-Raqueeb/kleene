@@ -143,3 +143,22 @@ test('match -c counts the lines', async () => {
   assert.equal(result.out, '2\n');
 });
 
+test('match -o prints the matched text rather than the line', async () => {
+  const result = await cli(['match', '[0-9]+', '-o'], { stdin: 'a1 b22\n' });
+  assert.equal(result.out, '1\n22\n');
+});
+
+test('a trailing newline does not create an extra empty line', async () => {
+  // Without dropping it, a file ending in a newline matches `^$` and every
+  // count is one too high.
+  const result = await cli(['match', '^$', '-c'], { stdin: 'a\n' });
+  assert.equal(result.out, '0\n');
+});
+
+test('match -i ignores case', async () => {
+  const result = await cli(['match', 'error', '-i'], { stdin: 'ERROR\n' });
+  assert.equal(result.out, 'ERROR\n');
+});
+
+// ---- replace -------------------------------------------------------------
+
