@@ -91,3 +91,43 @@ export const group = (body, number, name = null, index = -1) => ({
   kind: Kind.GROUP, body, number, name, index,
 });
 
+/**
+ * `^` or `$`.
+ *
+ * @param {string} which one of {@link AnchorKind}
+ * @param {number} [index] where in the pattern this came from
+ */
+export const anchor = (which, index = -1) => ({ kind: Kind.ANCHOR, which, index });
+
+/**
+ * `\b` or `\B`.
+ *
+ * @param {boolean} negated true for `\B`
+ * @param {number} [index] where in the pattern this came from
+ */
+export const boundary = (negated, index = -1) => ({ kind: Kind.BOUNDARY, negated, index });
+
+/**
+ * Walks a tree, calling `visit` on every node, parents first.
+ *
+ * Iterative with an explicit stack rather than recursive: a pattern is user
+ * input, and `a{1000}{1000}` nests deeply enough to overflow the call stack
+ * in a tool whose job is to report problems with it.
+ *
+ * @param {object} node the root
+ * @param {(node: object) => void} visit called once per node
+ */
+export function walk(node, visit) {
+  const stack = [node];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current !== 'object') continue;
+    visit(current);
+
+    if (current.parts) stack.push(...current.parts);
+    if (current.options) stack.push(...current.options);
+    if (current.body) stack.push(current.body);
+  }
+}
+
