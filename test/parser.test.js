@@ -206,3 +206,21 @@ test('escapes for control characters resolve', () => {
   assert.equal(tree('\\cA').set.singleton, 1);
 });
 
+test('a punctuation escape is the character itself', () => {
+  assert.equal(tree('\\.').set.singleton, 0x2e);
+  assert.equal(tree('\\*').set.singleton, 0x2a);
+  assert.equal(tree('\\\\').set.singleton, 0x5c);
+});
+
+test('an unknown alphanumeric escape is rejected, not read as the letter', () => {
+  // `\q` is almost always a typo, and silently matching `q` hides it.
+  const error = throwsWith(() => tree('\\q'), PatternError);
+  assert.match(error.message, /\\q/);
+  assert.match(error.message, /not a recognised escape/);
+});
+
+test('a trailing backslash is rejected', () => {
+  const error = throwsWith(() => tree('a\\'), PatternError);
+  assert.match(error.message, /ends with a backslash/);
+});
+
