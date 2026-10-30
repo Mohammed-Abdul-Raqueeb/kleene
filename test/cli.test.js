@@ -162,3 +162,21 @@ test('match -i ignores case', async () => {
 
 // ---- replace -------------------------------------------------------------
 
+test('replace substitutes every match', async () => {
+  // Global by default: replacing only the first occurrence in a file is
+  // almost never what was meant.
+  const result = await cli(['replace', 'a', 'X'], { stdin: 'aaa' });
+  assert.equal(result.out, 'XXX\n');
+});
+
+test('replace expands group references', async () => {
+  const result = await cli(['replace', '(\\w+) (\\w+)', '$2 $1'], { stdin: 'hello world' });
+  assert.equal(result.out, 'world hello\n');
+});
+
+test('replace without a replacement is a usage error', async () => {
+  const result = await cli(['replace', 'a']);
+  assert.equal(result.code, 2);
+  assert.match(result.err, /needs a replacement/);
+});
+
