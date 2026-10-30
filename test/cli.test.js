@@ -106,3 +106,25 @@ test('find --count prints the number, not the matches', async () => {
   assert.equal(result.out, '2\n');
 });
 
+test('find --group prints one capture instead of the whole match', async () => {
+  const byNumber = await cli(['find', '(\\w)=(\\d)', '--group', '2'], { stdin: 'a=1 b=2' });
+  assert.equal(byNumber.out, '1\n2\n');
+
+  const byName = await cli(['find', '(?<k>\\w)=\\d', '--group', 'k'], { stdin: 'a=1' });
+  assert.equal(byName.out, 'a\n');
+});
+
+test('find --group prints nothing for a group that did not participate', async () => {
+  // Rather than the word "undefined", which would poison a pipeline.
+  const result = await cli(['find', '(x)?a', '--group', '1'], { stdin: 'a' });
+  assert.equal(result.out, '\n');
+});
+
+// ---- match ---------------------------------------------------------------
+
+test('match prints the lines that match', async () => {
+  const result = await cli(['match', 'ERROR'], { stdin: 'ok\nERROR here\nfine\n' });
+  assert.equal(result.code, 0);
+  assert.equal(result.out, 'ERROR here\n');
+});
+
