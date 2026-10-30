@@ -107,3 +107,20 @@ test('negate holds everything the set does not', () => {
   assert.equal(set.size, MAX_CODE_POINT);
 });
 
+test('negating twice gives the original back', () => {
+  const original = CharSet.fromRanges([[0x61, 0x63], [0x70, 0x72]]);
+  assert.ok(original.negate().negate().equals(original));
+});
+
+test('negating the empty set gives everything', () => {
+  assert.equal(CharSet.empty().negate().size, MAX_CODE_POINT + 1);
+  assert.ok(CharSet.any().negate().isEmpty);
+});
+
+test('foldCase adds the other case of each letter', () => {
+  const set = CharSet.of(0x61).foldCase();
+  assert.ok(set.has(0x61), 'lower case');
+  assert.ok(set.has(0x41), 'upper case');
+  assert.ok(!set.has(0x62));
+});
+
