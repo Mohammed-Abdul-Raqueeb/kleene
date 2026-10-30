@@ -20,3 +20,132 @@ import { PatternError } from './errors.js';
 /** The most instructions a program may hold. */
 export const MAX_PROGRAM = 100000;
 
+/**
+ * Compiles a tree.
+ *
+ * @param {object} node the root
+ * @param {object} options
+ * @param {number} options.groupCount how many capture groups the tree holds
+ * @param {object} [options.flags] the parsed flags, carried into the program
+ * @param {Map<string, number>} [options.names] named groups
+ * @param {string} [options.pattern] the source, for error messages
+ * @returns {import('./program.js').Program} the program
+ */
+export function compile(node, { groupCount, flags = {}, names = new Map(), pattern = '' }) {
+  const builder = new ProgramBuilder();
+
+  // Slot 0 and 1 hold the whole match, so group N uses slots 2N and 2N+1.
+  // Emitting the outer save pair here rather than wrapping the tree in a
+  // synthetic group keeps `groupCount` meaning what it says.
+  builder.emit({ op: Op.SAVE, slot: 0 });
+  emit(builder, node, pattern);
+  builder.emit({ op: Op.SAVE, slot: 1 });
+  builder.emit({ op: Op.MATCH });
+
+  if (builder.here > MAX_PROGRAM) {
+    throw new PatternError(
+      `this pattern compiles to ${builder.here} instructions, over the limit of ${MAX_PROGRAM}`,
+      { pattern, index: 0 },
+    );
+  }
+
+  return builder.build((groupCount + 1) * 2, { flags, names, groupCount, pattern });
+}
+
+function emit(builder, node, pattern) {
+  switch (node.kind) {
+    case Kind.EMPTY:
+      // Nothing to emit. The empty pattern matches the empty string, which
+      // falls out of there being no instructions between the saves.
+      return;
+
+    case Kind.CHARSET:
+      builder.emit({ op: Op.CHAR, set: node.set });
+      return;
+
+    case Kind.CONCAT:
+      for (const part of node.parts) emit(builder, part, pattern);
+      return;
+
+    case Kind.ALTERNATE:
+      emitAlternate(builder, node, pattern);
+      return;
+
+    case Kind.REPEAT:
+      emitRepeat(builder, node, pattern);
+      return;
+
+    case Kind.GROUP:
+      if (node.number < 0) {
+        emit(builder, node.body, pattern);
+        return;
+      }
+      builder.emit({ op: Op.SAVE, slot: node.number * 2 });
+      emit(builder, node.body, pattern);
+      builder.emit({ op: Op.SAVE, slot: node.number * 2 + 1 });
+      return;
+
+    case Kind.ANCHOR:
+      builder.emit({
+        op: node.which === 'start' ? Op.ASSERT_START : Op.ASSERT_END,
+      });
+      return;
+
+    case Kind.BOUNDARY:
+      builder.emit({ op: Op.ASSERT_BOUNDARY, negated: node.negated });
+      return;
+
+    default:
+      throw new Error(`compiler bug: cannot emit a ${node.kind} node`);
+  }
+}
+
+/**
+ * `a|b|c` becomes a chain of splits.
+ *
+ *     split L1, L2
+ *   L1: <a>
+ *     jump END
+ *   L2: split L3, L4
+ *   L3: <b>
+ *     jump END
+ *   L4: <c>
+ *   END:
+ */
+function emitAlternate(builder, node, pattern) {
+  const jumpsToEnd = [];
+
+  for (let i = 0; i < node.options.length; i++) {
+    const isLast = i === node.options.length - 1;
+
+    if (isLast) {
+      emit(builder, node.options[i], pattern);
+      break;
+    }
+
+    const split = builder.emitPlaceholder(Op.SPLIT);
+    builder.patch(split, { x: builder.here });
+    emit(builder, node.options[i], pattern);
+    jumpsToEnd.push(builder.emitPlaceholder(Op.JUMP));
+    builder.patch(split, { y: builder.here });
+  }
+
+  const end = builder.here;
+  for (const jump of jumpsToEnd) builder.patch(jump, { x: end });
+}
+
+/**
+ * The capture slots of every group inside a node.
+ *
+ * Used to clear them at the top of each repeat iteration.
+ */
+function slotsIn(node) {
+  const slots = [];
+  walk(node, (current) => {
+    if (current.kind === Kind.GROUP && current.number >= 0) {
+      slots.push(current.number * 2, current.number * 2 + 1);
+    }
+  });
+  return slots.sort((a, b) => a - b);
+}
+
