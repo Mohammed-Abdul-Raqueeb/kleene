@@ -43,3 +43,22 @@ test('any holds every code point', () => {
   assert.ok(set.has(MAX_CODE_POINT));
 });
 
+test('overlapping ranges are merged', () => {
+  const set = CharSet.fromRanges([[0x61, 0x65], [0x63, 0x67]]);
+  assert.equal(set.ranges.length, 1);
+  assert.deepEqual(set.ranges[0], [0x61, 0x67]);
+});
+
+test('adjacent ranges are joined', () => {
+  // Without joining, `[0-9]` built one digit at a time would be ten ranges
+  // and every lookup would walk more of them.
+  const set = CharSet.fromRanges([[0x61, 0x62], [0x63, 0x64]]);
+  assert.equal(set.ranges.length, 1);
+  assert.deepEqual(set.ranges[0], [0x61, 0x64]);
+});
+
+test('ranges given out of order are sorted', () => {
+  const set = CharSet.fromRanges([[0x70, 0x72], [0x61, 0x63]]);
+  assert.deepEqual(set.ranges, [[0x61, 0x63], [0x70, 0x72]]);
+});
+
