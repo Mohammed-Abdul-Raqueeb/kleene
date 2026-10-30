@@ -192,3 +192,31 @@ test('split prints the pieces one per line', async () => {
   assert.equal(result.out, 'a\nb\nc\n');
 });
 
+// ---- explain -------------------------------------------------------------
+
+test('explain shows the pattern, the program and the parity promise', async () => {
+  const result = await cli(['explain', '(a|b)+c']);
+  assert.equal(result.code, 0);
+  assert.match(result.out, /pattern\s+\/\(a\|b\)\+c\//);
+  assert.match(result.out, /simplified/);
+  assert.match(result.out, /groups\s+1/);
+  assert.match(result.out, /instructions/);
+  assert.match(result.out, /char/, 'the disassembly');
+  assert.match(result.out, /match$/m);
+});
+
+test('explain reports when RegExp parity is guaranteed', async () => {
+  const safe = await cli(['explain', 'a+b']);
+  assert.match(safe.out, /parity\s+guaranteed/);
+
+  // A nullable quantifier body is the one thing that voids the promise, and
+  // someone comparing the two engines deserves to be told before they do.
+  const unsafe = await cli(['explain', '(b?)*']);
+  assert.match(unsafe.out, /parity\s+not guaranteed/);
+});
+
+test('explain names the named groups', async () => {
+  const result = await cli(['explain', '(?<word>\\w+)']);
+  assert.match(result.out, /word/);
+});
+
