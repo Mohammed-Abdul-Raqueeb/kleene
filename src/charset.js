@@ -289,3 +289,60 @@ export class CharSet {
   }
 }
 
+function describeRange([from, to]) {
+  return from === to ? describeChar(from) : `${describeChar(from)}-${describeChar(to)}`;
+}
+
+function describeChar(code) {
+  switch (code) {
+    case 0x0a: return '\\n';
+    case 0x0d: return '\\r';
+    case 0x09: return '\\t';
+    case 0x0c: return '\\f';
+    case 0x0b: return '\\v';
+    case 0x00: return '\\0';
+    default:
+      if (code < 0x20 || code > 0x7e) {
+        return `\\u{${code.toString(16)}}`;
+      }
+      return String.fromCodePoint(code);
+  }
+}
+
+/** Sorts, merges and joins adjacent ranges. */
+function normalise(ranges) {
+  if (ranges.length === 0) return [];
+
+  const sorted = [...ranges].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const out = [sorted[0].slice()];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const [from, to] = sorted[i];
+    const last = out[out.length - 1];
+
+    // `from <= last[1] + 1` rather than `<= last[1]`, so [a-m] and [n-z]
+    // become one range. Adjacency matters: without it `[0-9]` built one digit
+    // at a time would be ten ranges and every `has` would be slower.
+    if (from <= last[1] + 1) {
+      last[1] = Math.max(last[1], to);
+    } else {
+      out.push([from, to]);
+    }
+  }
+
+  return out;
+}
+
+/** The named classes, as the parser's escapes resolve to. */
+export const CLASSES = {
+  d: CharSet.range(0x30, 0x39),
+  w: CharSet.fromRanges([[0x30, 0x39], [0x41, 0x5a], [0x5f, 0x5f], [0x61, 0x7a]]),
+  // The same set JavaScript's `\s` uses, which is wider than most people
+  // expect: it includes the Unicode space separators and the BOM.
+  s: CharSet.fromRanges([
+    [0x09, 0x0d], [0x20, 0x20], [0xa0, 0xa0], [0x1680, 0x1680],
+    [0x2000, 0x200a], [0x2028, 0x2029], [0x202f, 0x202f], [0x205f, 0x205f],
+    [0x3000, 0x3000], [0xfeff, 0xfeff],
+  ]),
+};
+
