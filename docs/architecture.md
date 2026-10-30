@@ -156,3 +156,37 @@ uses the same function to draw its boundary. Measured: **5,035 generated
 patterns compared, 0 disagreements** once nullable quantifier bodies are
 excluded.
 
+## The program is a flat array
+
+Instructions with numeric jump targets, not a graph of state objects. Two
+reasons:
+
+- A thread is an integer, so the "have I run this state here already?" check
+  is an array lookup rather than a `Set` of objects. `ThreadList` holds a
+  generation number per instruction, so clearing it once per input character
+  is incrementing one integer rather than refilling an array.
+- **It is printable.** `kleene explain` disassembles the program, and being
+  able to read what the compiler produced is how most of the bugs in it were
+  found.
+
+## Bounded repeats are copied out
+
+`a{3,5}` becomes three mandatory copies and two optional ones. The cost is
+program size, which is why `MAX_REPEAT` is 10,000 and the limit is reported
+rather than the engine quietly building a million instructions.
+
+The alternative — a counter in the VM — would mean a thread's identity
+included its counts, and the one-thread-per-instruction bound would go with
+it. The same reason the empty-check rule is absent.
+
+## What is deliberately missing
+
+- **A lazy DFA.** The standard next step for speed: cache subset-construction
+  states so a boolean search needs no thread list. It would close much of the
+  fifty-times gap on ordinary patterns, and it is a second engine to keep
+  correct.
+- **Unicode property escapes.** `\p{Letter}` needs the Unicode character
+  database, which is megabytes of tables.
+- **Backreferences and lookaround.** Covered above. Not oversights.
+- **`y` with `matchAll`.** Sticky is honoured by `exec`; `matchAll` treats it
+  as a scan from each position.
