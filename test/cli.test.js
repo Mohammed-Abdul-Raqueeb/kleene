@@ -66,3 +66,25 @@ test('an option missing its value is reported by name', () => {
   assert.match(error.message, /--flags needs a value/);
 });
 
+test('an unknown option before the pattern is refused', () => {
+  const error = throwsWith(() => parseArgs(['--nope', 'find', 'a']), Error);
+  assert.match(error.message, /unknown option "--nope"/);
+});
+
+test('a pattern starting with a dash is data, not a flag', () => {
+  // `kleene find -x` should search for "-x", which means only the arguments
+  // before the pattern can be flags.
+  const options = parseArgs(['find', 'a', '-x.txt']);
+  assert.deepEqual(options.files, ['-x.txt']);
+});
+
+test('the boolean switches parse', () => {
+  assert.equal(parseArgs(['match', 'a', '-v']).invert, true);
+  assert.equal(parseArgs(['match', 'a', '-n']).lineNumber, true);
+  assert.equal(parseArgs(['match', 'a', '-c']).count, true);
+  assert.equal(parseArgs(['match', 'a', '-o']).only, true);
+  assert.equal(parseArgs(['replace', 'a', 'b', '--no-newline']).noNewline, true);
+});
+
+// ---- find ----------------------------------------------------------------
+
