@@ -1,5 +1,7 @@
 # Kleene
 
+> 📘 **Case study:** [raqueeb.dev/projects/kleene](https://raqueeb.dev/projects/kleene) — architecture, stack and implementation notes.
+
 A regular expression engine that **cannot be made slow by its input**, with no
 dependencies at all.
 
